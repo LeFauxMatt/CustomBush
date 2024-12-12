@@ -1,0 +1,37 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35507.96
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CustomBush", "CustomBush\CustomBush.csproj", "{38DE63E1-160B-489A-826F-24C92C7303EE}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+	ProjectSection(SolutionItems) = preProject
+		CHANGELOG.md = CHANGELOG.md
+		LICENSE.txt = LICENSE.txt
+		README.md = README.md
+	EndProjectSection
+EndProject
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = ".Common", "FauxCore\FauxCommon\.Common.shproj", "{966B9495-8681-44DA-9F8E-0838E5EB1A42}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{38DE63E1-160B-489A-826F-24C92C7303EE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{38DE63E1-160B-489A-826F-24C92C7303EE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{38DE63E1-160B-489A-826F-24C92C7303EE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{38DE63E1-160B-489A-826F-24C92C7303EE}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {DCCA2E71-4236-4C34-A3DC-668002019C2F}
+	EndGlobalSection
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		FauxCore\FauxCommon\FauxCommon.projitems*{38de63e1-160b-489a-826f-24c92c7303ee}*SharedItemsImports = 5
+		FauxCore\FauxCommon\FauxCommon.projitems*{966b9495-8681-44da-9f8e-0838e5eb1a42}*SharedItemsImports = 13
+	EndGlobalSection
+EndGlobal

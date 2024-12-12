@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <Import Project="..\FauxCore\FauxCommon\Common.targets"/>
+  <Import Project="..\FauxCore\FauxCommon\FauxCommon.projitems" Label="Shared" />
+
+  <PropertyGroup>
+    <Name>Custom Bush</Name>
+    <Description>Framework which allows custom bushes to be added to the game which work like the tea sapling.</Description>
+    <Version>1.3.0-beta.1</Version>
+    <EnableHarmony>true</EnableHarmony>
+    <RootNamespace>LeFauxMods.CustomBush</RootNamespace>
+    <UniqueId>furyx639.CustomBush</UniqueId>
+    <UpdateKeys>Nexus:20619, CurseForge:998265, ModDrop:1547214, GitHub:LeFauxMatt/CustomBush</UpdateKeys>
+    <RepositoryUrl>https://github.com/LeFauxMatt/CustomBush</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Pathoschild.Stardew.ModTranslationClassBuilder" Version="2.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <SMAPIDependency Include="spacechase0.GenericModConfigMenu" Version="1.14.1" required="false" />
+  </ItemGroup>
+
+</Project>
