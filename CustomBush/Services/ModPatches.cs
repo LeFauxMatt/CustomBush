@@ -444,6 +444,7 @@ internal static class ModPatches
         ref bool __result)
     {
         if (!Data.ContainsKey(dropInItem.QualifiedItemId)
+            || __instance.QualifiedItemId != "(BC)62"
             || __instance.hoeDirt.Value.crop != null)
         {
             return;

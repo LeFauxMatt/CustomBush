@@ -26,12 +26,11 @@ internal sealed class ModEntry : Mod
         BushExtensions.Init(this.GetData);
         ModPatches.Init(this.GetData, this.GetTexture);
 
-        var contentPatcherIntegration = new ContentPatcherIntegration(this.Helper);
-
         // Events
         this.Helper.Events.Content.AssetRequested += OnAssetRequested;
         this.Helper.Events.Content.AssetsInvalidated += this.OnAssetsInvalidated;
 
+        var contentPatcherIntegration = new ContentPatcherIntegration(this.Helper);
         if (contentPatcherIntegration.IsLoaded)
         {
             EventManager.Subscribe<ConditionsApiReadyEventArgs>(this.OnConditionsApiReady);
@@ -71,7 +70,7 @@ internal sealed class ModEntry : Mod
                     }
                 }
             },
-            (AssetEditPriority)int.MinValue);
+            (AssetEditPriority)int.MaxValue);
     }
 
     private Dictionary<string, CustomBush> GetData() =>
