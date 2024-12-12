@@ -1,8 +1,8 @@
 namespace LeFauxMods.CustomBush;
 
 using Common.Integrations.ContentPatcher;
-using LeFauxMods.Common.Services;
-using LeFauxMods.Common.Utilities;
+using Common.Services;
+using Common.Utilities;
 using Microsoft.Xna.Framework.Graphics;
 using Models;
 using Services;
@@ -36,27 +36,6 @@ internal sealed class ModEntry : Mod
         {
             EventManager.Subscribe<ConditionsApiReadyEventArgs>(this.OnConditionsApiReady);
         }
-    }
-
-    private Dictionary<string, CustomBush> GetData() =>
-        this.data ??= this.Helper.GameContent.Load<Dictionary<string, CustomBush>>(Constants.DataPath);
-
-    private Texture2D GetTexture(string path)
-    {
-        if (this.textures.TryGetValue(path, out var texture))
-        {
-            return texture;
-        }
-
-        texture = this.Helper.GameContent.Load<Texture2D>(path);
-        this.textures[path] = texture;
-        return texture;
-    }
-
-    private void OnConditionsApiReady(ConditionsApiReadyEventArgs e)
-    {
-        this.data = null;
-        this.textures.Clear();
     }
 
     /// <inheritdoc />
@@ -95,6 +74,21 @@ internal sealed class ModEntry : Mod
             (AssetEditPriority)int.MinValue);
     }
 
+    private Dictionary<string, CustomBush> GetData() =>
+        this.data ??= this.Helper.GameContent.Load<Dictionary<string, CustomBush>>(Constants.DataPath);
+
+    private Texture2D GetTexture(string path)
+    {
+        if (this.textures.TryGetValue(path, out var texture))
+        {
+            return texture;
+        }
+
+        texture = this.Helper.GameContent.Load<Texture2D>(path);
+        this.textures[path] = texture;
+        return texture;
+    }
+
     private void OnAssetsInvalidated(object? sender, AssetsInvalidatedEventArgs e)
     {
         foreach (var assetName in e.NamesWithoutLocale)
@@ -107,5 +101,11 @@ internal sealed class ModEntry : Mod
 
             _ = this.textures.RemoveWhere(kvp => assetName.IsEquivalentTo(kvp.Key));
         }
+    }
+
+    private void OnConditionsApiReady(ConditionsApiReadyEventArgs e)
+    {
+        this.data = null;
+        this.textures.Clear();
     }
 }
