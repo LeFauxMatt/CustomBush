@@ -33,7 +33,7 @@ internal sealed class ModEntry : Mod
         var contentPatcherIntegration = new ContentPatcherIntegration(this.Helper);
         if (contentPatcherIntegration.IsLoaded)
         {
-            EventManager.Subscribe<ConditionsApiReadyEventArgs>(this.OnConditionsApiReady);
+            ModEvents.Subscribe<ConditionsApiReadyEventArgs>(this.OnConditionsApiReady);
         }
     }
 
