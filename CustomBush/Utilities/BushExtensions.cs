@@ -1,7 +1,7 @@
 namespace LeFauxMods.CustomBush.Utilities;
 
-using LeFauxMods.Common.Integrations.CustomBush;
-using LeFauxMods.Common.Utilities;
+using Common.Integrations.CustomBush;
+using Common.Utilities;
 using Models;
 using StardewValley.Extensions;
 using StardewValley.Internal;
@@ -13,8 +13,6 @@ internal static class BushExtensions
 
     private static Dictionary<string, CustomBush> Data => getData!();
 
-    public static void Init(Func<Dictionary<string, CustomBush>> getData) => BushExtensions.getData ??= getData;
-
     public static void ClearCachedData(this Bush bush)
     {
         _ = bush.modData.Remove(Constants.ModDataItem);
@@ -22,6 +20,8 @@ internal static class BushExtensions
         _ = bush.modData.Remove(Constants.ModDataQuality);
         _ = bush.modData.Remove(Constants.ModDataStack);
     }
+
+    public static void Init(Func<Dictionary<string, CustomBush>> getData) => BushExtensions.getData ??= getData;
 
     public static bool TryGetCachedData(this Bush bush, out string? itemId, out int itemQuality, out int itemStack)
     {

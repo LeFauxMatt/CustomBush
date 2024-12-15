@@ -1,6 +1,6 @@
 namespace LeFauxMods.CustomBush.Models;
 
-using LeFauxMods.Common.Integrations.CustomBush;
+using Common.Integrations.CustomBush;
 using StardewValley.GameData;
 
 /// <inheritdoc />

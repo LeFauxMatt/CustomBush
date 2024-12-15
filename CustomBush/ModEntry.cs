@@ -1,8 +1,8 @@
 namespace LeFauxMods.CustomBush;
 
 using Common.Integrations.ContentPatcher;
-using LeFauxMods.Common.Services;
-using LeFauxMods.Common.Utilities;
+using Common.Services;
+using Common.Utilities;
 using Microsoft.Xna.Framework.Graphics;
 using Models;
 using Services;
@@ -26,37 +26,15 @@ internal sealed class ModEntry : Mod
         BushExtensions.Init(this.GetData);
         ModPatches.Init(this.GetData, this.GetTexture);
 
-        var contentPatcherIntegration = new ContentPatcherIntegration(this.Helper);
-
         // Events
         this.Helper.Events.Content.AssetRequested += OnAssetRequested;
         this.Helper.Events.Content.AssetsInvalidated += this.OnAssetsInvalidated;
 
+        var contentPatcherIntegration = new ContentPatcherIntegration(this.Helper);
         if (contentPatcherIntegration.IsLoaded)
         {
-            EventManager.Subscribe<ConditionsApiReadyEventArgs>(this.OnConditionsApiReady);
+            ModEvents.Subscribe<ConditionsApiReadyEventArgs>(this.OnConditionsApiReady);
         }
-    }
-
-    private Dictionary<string, CustomBush> GetData() =>
-        this.data ??= this.Helper.GameContent.Load<Dictionary<string, CustomBush>>(Constants.DataPath);
-
-    private Texture2D GetTexture(string path)
-    {
-        if (this.textures.TryGetValue(path, out var texture))
-        {
-            return texture;
-        }
-
-        texture = this.Helper.GameContent.Load<Texture2D>(path);
-        this.textures[path] = texture;
-        return texture;
-    }
-
-    private void OnConditionsApiReady(ConditionsApiReadyEventArgs e)
-    {
-        this.data = null;
-        this.textures.Clear();
     }
 
     /// <inheritdoc />
@@ -92,7 +70,22 @@ internal sealed class ModEntry : Mod
                     }
                 }
             },
-            (AssetEditPriority)int.MinValue);
+            (AssetEditPriority)int.MaxValue);
+    }
+
+    private Dictionary<string, CustomBush> GetData() =>
+        this.data ??= this.Helper.GameContent.Load<Dictionary<string, CustomBush>>(Constants.DataPath);
+
+    private Texture2D GetTexture(string path)
+    {
+        if (this.textures.TryGetValue(path, out var texture))
+        {
+            return texture;
+        }
+
+        texture = this.Helper.GameContent.Load<Texture2D>(path);
+        this.textures[path] = texture;
+        return texture;
     }
 
     private void OnAssetsInvalidated(object? sender, AssetsInvalidatedEventArgs e)
@@ -107,5 +100,11 @@ internal sealed class ModEntry : Mod
 
             _ = this.textures.RemoveWhere(kvp => assetName.IsEquivalentTo(kvp.Key));
         }
+    }
+
+    private void OnConditionsApiReady(ConditionsApiReadyEventArgs e)
+    {
+        this.data = null;
+        this.textures.Clear();
     }
 }

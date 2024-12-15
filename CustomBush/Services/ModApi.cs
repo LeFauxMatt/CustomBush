@@ -1,6 +1,6 @@
 namespace LeFauxMods.CustomBush.Services;
 
-using LeFauxMods.Common.Integrations.CustomBush;
+using Common.Integrations.CustomBush;
 using Models;
 using StardewValley.TerrainFeatures;
 
