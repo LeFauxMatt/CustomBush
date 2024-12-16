@@ -21,7 +21,7 @@ internal static class BushExtensions
         _ = bush.modData.Remove(Constants.ModDataStack);
     }
 
-    public static void Init(Func<Dictionary<string, CustomBush>> getData) => BushExtensions.getData ??= getData;
+    public static void Init(Func<Dictionary<string, CustomBush>> gD) => getData ??= gD;
 
     public static bool TryGetCachedData(this Bush bush, out string? itemId, out int itemQuality, out int itemStack)
     {

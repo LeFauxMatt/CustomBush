@@ -5,7 +5,7 @@ using Models;
 using StardewValley.TerrainFeatures;
 
 /// <inheritdoc />
-public sealed class ModApi(IModHelper helper, IModInfo mod) : ICustomBushApi
+public sealed class ModApi(IModHelper helper) : ICustomBushApi
 {
     /// <inheritdoc />
     public IEnumerable<(string Id, ICustomBush Data)> GetData() =>

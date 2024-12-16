@@ -1,0 +1,6 @@
+{
+  "config.log-amount.name": "Niveau de consignation",
+  "config.log-amount.tooltip": "Le niveau d’information de débogage qui sera enregistré dans la console.",
+  "config.log-amount.less": "Peu",
+  "config.log-amount.more": "Plus"
+}

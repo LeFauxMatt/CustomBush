@@ -1,6 +1,8 @@
 namespace LeFauxMods.CustomBush;
 
 using Common.Integrations.ContentPatcher;
+using Common.Integrations.GenericModConfigMenu;
+using Common.Models;
 using Common.Services;
 using Common.Utilities;
 using Microsoft.Xna.Framework.Graphics;
@@ -15,6 +17,8 @@ internal sealed class ModEntry : Mod
 {
     private readonly Dictionary<string, Texture2D> textures = new(StringComparer.OrdinalIgnoreCase);
 
+    private ModConfig config = null!;
+    private ConfigHelper<ModConfig> configHelper = null!;
     private Dictionary<string, CustomBush>? data;
 
     /// <inheritdoc />
@@ -22,13 +26,20 @@ internal sealed class ModEntry : Mod
     {
         // Init
         I18n.Init(this.Helper.Translation);
-        Log.Init(this.Monitor);
+
+        this.configHelper = new ConfigHelper<ModConfig>(helper);
+        this.config = this.configHelper.Load();
+
+        Log.Init(this.Monitor, this.config);
         BushExtensions.Init(this.GetData);
         ModPatches.Init(this.GetData, this.GetTexture);
 
         // Events
         this.Helper.Events.Content.AssetRequested += OnAssetRequested;
         this.Helper.Events.Content.AssetsInvalidated += this.OnAssetsInvalidated;
+        this.Helper.Events.GameLoop.GameLaunched += this.OnGameLaunched;
+
+        ModEvents.Subscribe<ConfigChangedEventArgs<ModConfig>>(this.OnConfigChanged);
 
         var contentPatcherIntegration = new ContentPatcherIntegration(this.Helper);
         if (contentPatcherIntegration.IsLoaded)
@@ -38,7 +49,7 @@ internal sealed class ModEntry : Mod
     }
 
     /// <inheritdoc />
-    public override object GetApi(IModInfo mod) => new ModApi(this.Helper, mod);
+    public override object GetApi(IModInfo mod) => new ModApi(this.Helper);
 
     private static void OnAssetRequested(object? sender, AssetRequestedEventArgs e)
     {
@@ -106,5 +117,37 @@ internal sealed class ModEntry : Mod
     {
         this.data = null;
         this.textures.Clear();
+    }
+
+    private void OnConfigChanged(ConfigChangedEventArgs<ModConfig> e) => e.Config.CopyTo(this.config);
+
+    private void OnGameLaunched(object? sender, GameLaunchedEventArgs e)
+    {
+        var gmcm = new GenericModConfigMenuIntegration(this.ModManifest, this.Helper.ModRegistry);
+        if (!gmcm.IsLoaded)
+        {
+            return;
+        }
+
+        var tempConfig = this.configHelper.Load();
+
+        gmcm.Register(
+            () => tempConfig = new ModConfig(),
+            () => this.configHelper.Save(tempConfig));
+
+        gmcm.Api.AddTextOption(
+            this.ModManifest,
+            () => tempConfig.LogAmount.ToStringFast(),
+            value => tempConfig.LogAmount =
+                LogAmountExtensions.TryParse(value, out var logAmount) ? logAmount : LogAmount.Less,
+            I18n.Config_LogAmount_Name,
+            I18n.Config_LogAmount_Tooltip,
+            LogAmountExtensions.GetNames(),
+            value =>
+                value switch
+                {
+                    nameof(LogAmount.More) => I18n.Config_LogAmount_More(),
+                    _ => I18n.Config_LogAmount_Less()
+                });
     }
 }
