@@ -1,0 +1,8 @@
+{
+  "placeholder.name": "Custom Bush",
+  "placeholder.description": "This is a custom bush",
+  "config.log-amount.name": "Log Amount",
+  "config.log-amount.tooltip": "The amount of information that will be logged to the console.",
+  "config.log-amount.less": "Less",
+  "config.log-amount.more": "More"
+}
