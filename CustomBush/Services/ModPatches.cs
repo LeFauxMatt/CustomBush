@@ -64,8 +64,8 @@ internal static class ModPatches
         _ = Harmony.Patch(
             typeof(GameLocation).GetMethod(
                 nameof(GameLocation.CheckItemPlantRules),
-                BindingFlags.Public | BindingFlags.Instance)
-            ?? throw new MethodAccessException("Unable to access CheckItemPlantRules"),
+                BindingFlags.Public | BindingFlags.Instance) ??
+            throw new MethodAccessException("Unable to access CheckItemPlantRules"),
             postfix: new HarmonyMethod(typeof(ModPatches), nameof(GameLocation_CheckItemPlantRules_postfix)));
 
         _ = Harmony.Patch(
@@ -98,8 +98,8 @@ internal static class ModPatches
         NetRectangle ___sourceRect,
         float ___yDrawOffset)
     {
-        if (!__instance.modData.TryGetValue(Constants.ModDataId, out var id)
-            || !Data.TryGetValue(id, out var bushModel))
+        if (!__instance.modData.TryGetValue(Constants.ModDataId, out var id) ||
+            !Data.TryGetValue(id, out var bushModel))
         {
             return true;
         }
@@ -153,8 +153,7 @@ internal static class ModPatches
     [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony.")]
     private static void Bush_GetShakeOffItem_postfix(Bush __instance, ref string __result)
     {
-        if (__instance.modData.TryGetValue(Constants.ModDataItem, out var itemId)
-            && !string.IsNullOrWhiteSpace(itemId))
+        if (__instance.modData.TryGetValue(Constants.ModDataItem, out var itemId) && !string.IsNullOrWhiteSpace(itemId))
         {
             __result = itemId;
         }
@@ -165,13 +164,12 @@ internal static class ModPatches
     {
         var season = __instance.Location.GetSeason();
 
-        if (__instance.modData.TryGetValue(Constants.ModDataItem, out var itemId)
-            && !string.IsNullOrWhiteSpace(itemId))
+        if (__instance.modData.TryGetValue(Constants.ModDataItem, out var itemId) && !string.IsNullOrWhiteSpace(itemId))
         {
             // Verify the cached item is for the current season
-            if (__instance.modData.TryGetValue(Constants.ModDataItemSeason, out var itemSeason)
-                && !string.IsNullOrWhiteSpace(itemSeason)
-                && itemSeason == nameof(season))
+            if (__instance.modData.TryGetValue(Constants.ModDataItemSeason, out var itemSeason) &&
+                !string.IsNullOrWhiteSpace(itemSeason) &&
+                itemSeason == nameof(season))
             {
                 __result = true;
                 return;
@@ -188,8 +186,8 @@ internal static class ModPatches
             __instance.ClearCachedData();
         }
 
-        if (!__instance.modData.TryGetValue(Constants.ModDataId, out var id)
-            || !Data.TryGetValue(id, out var bushModel))
+        if (!__instance.modData.TryGetValue(Constants.ModDataId, out var id) ||
+            !Data.TryGetValue(id, out var bushModel))
         {
             return;
         }
@@ -282,12 +280,10 @@ internal static class ModPatches
     private static IEnumerable<CodeInstruction> Bush_performToolAction_transpiler(
         IEnumerable<CodeInstruction> instructions)
     {
-        var method = AccessTools
-            .GetDeclaredMethods(typeof(ItemRegistry))
+        var method = AccessTools.GetDeclaredMethods(typeof(ItemRegistry))
             .First(method => method.Name == nameof(ItemRegistry.Create) && !method.IsGenericMethod);
 
-        return new CodeMatcher(instructions)
-            .MatchStartForward(new CodeMatch(instruction => instruction.Calls(method)))
+        return new CodeMatcher(instructions).MatchStartForward(new CodeMatch(instruction => instruction.Calls(method)))
             .RemoveInstruction()
             .InsertAndAdvance(
                 new CodeInstruction(OpCodes.Ldarg_0),
@@ -298,8 +294,8 @@ internal static class ModPatches
     [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony.")]
     private static void Bush_setUpSourceRect_postfix(Bush __instance, NetRectangle ___sourceRect)
     {
-        if (!__instance.modData.TryGetValue(Constants.ModDataId, out var id)
-            || !Data.TryGetValue(id, out var bushModel))
+        if (!__instance.modData.TryGetValue(Constants.ModDataId, out var id) ||
+            !Data.TryGetValue(id, out var bushModel))
         {
             return;
         }
@@ -341,7 +337,14 @@ internal static class ModPatches
         {
             for (var i = 0; i < itemStack; i++)
             {
-                Game1.createObjectDebris(itemId, xTile, yTile, groundLevel, itemQuality, velocityMultiplier, location);
+                Game1.createObjectDebris(
+                    itemId,
+                    xTile,
+                    yTile,
+                    groundLevel,
+                    itemQuality,
+                    velocityMultiplier,
+                    location);
             }
 
             bush.ClearCachedData();
@@ -366,7 +369,14 @@ internal static class ModPatches
         }
 
         // Create vanilla item
-        Game1.createObjectDebris(id, xTile, yTile, groundLevel, itemQuality, velocityMultiplier, location);
+        Game1.createObjectDebris(
+            id,
+            xTile,
+            yTile,
+            groundLevel,
+            itemQuality,
+            velocityMultiplier,
+            location);
     }
 
     private static IEnumerable<CodeInstruction> Bush_shake_transpiler(IEnumerable<CodeInstruction> instructions) =>
@@ -392,7 +402,12 @@ internal static class ModPatches
                 CodeInstruction.Call(typeof(ModPatches), nameof(Bush_shake_CreateObjectDebris)))
             .InstructionEnumeration();
 
-    private static Item CreateBushItem(string itemId, int amount, int quality, bool allowNull, Bush bush)
+    private static Item CreateBushItem(
+        string itemId,
+        int amount,
+        int quality,
+        bool allowNull,
+        Bush bush)
     {
         if (bush.modData.TryGetValue(Constants.ModDataId, out var bushId))
         {
@@ -412,8 +427,7 @@ internal static class ModPatches
         ref string deniedMessage)
     {
         var metadata = ItemRegistry.GetMetadata(itemId);
-        if (metadata is null
-            || !Data.TryGetValue(metadata.QualifiedItemId, out var bushModel))
+        if (metadata is null || !Data.TryGetValue(metadata.QualifiedItemId, out var bushModel))
         {
             return;
         }
@@ -443,9 +457,9 @@ internal static class ModPatches
         bool probe,
         ref bool __result)
     {
-        if (!Data.ContainsKey(dropInItem.QualifiedItemId)
-            || __instance.QualifiedItemId != "(BC)62"
-            || __instance.hoeDirt.Value.crop != null)
+        if (!Data.ContainsKey(dropInItem.QualifiedItemId) ||
+            __instance.QualifiedItemId != "(BC)62" ||
+            __instance.hoeDirt.Value.crop != null)
         {
             return;
         }
@@ -454,7 +468,8 @@ internal static class ModPatches
         {
             __instance.bush.Value = new Bush(__instance.TileLocation, 3, __instance.Location)
             {
-                modData = { [Constants.ModDataId] = dropInItem.QualifiedItemId }, inPot = { Value = true }
+                modData = { [Constants.ModDataId] = dropInItem.QualifiedItemId },
+                inPot = { Value = true }
             };
 
             if (!__instance.Location.IsOutdoors)

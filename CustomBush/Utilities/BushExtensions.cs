@@ -52,8 +52,7 @@ internal static class BushExtensions
     {
         if (customBush is null)
         {
-            if (!bush.modData.TryGetValue(Constants.ModDataId, out var id)
-                || !Data.TryGetValue(id, out customBush))
+            if (!bush.modData.TryGetValue(Constants.ModDataId, out var id) || !Data.TryGetValue(id, out customBush))
             {
                 item = null;
                 return false;
@@ -89,8 +88,8 @@ internal static class BushExtensions
         }
 
         // Test drop condition
-        if (drop.Condition != null
-            && !GameStateQuery.CheckConditions(
+        if (drop.Condition != null &&
+            !GameStateQuery.CheckConditions(
                 drop.Condition,
                 bush.Location,
                 null,
@@ -104,9 +103,9 @@ internal static class BushExtensions
         }
 
         // Test season condition
-        if (drop.Season.HasValue
-            && bush.Location.SeedsIgnoreSeasonsHere()
-            && drop.Season != Game1.GetSeasonForLocation(bush.Location))
+        if (drop.Season.HasValue &&
+            bush.Location.SeedsIgnoreSeasonsHere() &&
+            drop.Season != Game1.GetSeasonForLocation(bush.Location))
         {
             Log.Trace(logFormat, id, drop.Id, drop.Season.ToString());
             return null;

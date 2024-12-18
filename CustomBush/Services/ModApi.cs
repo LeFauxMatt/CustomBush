@@ -9,8 +9,7 @@ public sealed class ModApi(IModHelper helper) : ICustomBushApi
 {
     /// <inheritdoc />
     public IEnumerable<(string Id, ICustomBush Data)> GetData() =>
-        helper
-            .GameContent.Load<Dictionary<string, CustomBush>>(Constants.DataPath)
+        helper.GameContent.Load<Dictionary<string, CustomBush>>(Constants.DataPath)
             .Select(pair => (pair.Key, (ICustomBush)pair.Value));
 
     /// <inheritdoc />

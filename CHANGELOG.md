@@ -1,10 +1,11 @@
 # Custom Bush Change Log
 
-## 1.3.1 (Unreleased)
+## 1.3.1 (December 17, 2024)
 
-### Added
+### Changed
 
 * Added config option to reduce log amount.
+* Config options can be loaded from backup.
 
 ## 1.3.0 (December 14, 2024)
 

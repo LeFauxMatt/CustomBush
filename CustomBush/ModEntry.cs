@@ -131,9 +131,7 @@ internal sealed class ModEntry : Mod
 
         var tempConfig = this.configHelper.Load();
 
-        gmcm.Register(
-            () => tempConfig = new ModConfig(),
-            () => this.configHelper.Save(tempConfig));
+        gmcm.Register(() => tempConfig = new ModConfig(), () => this.configHelper.Save(tempConfig));
 
         gmcm.Api.AddTextOption(
             this.ModManifest,
@@ -143,11 +141,10 @@ internal sealed class ModEntry : Mod
             I18n.Config_LogAmount_Name,
             I18n.Config_LogAmount_Tooltip,
             LogAmountExtensions.GetNames(),
-            value =>
-                value switch
-                {
-                    nameof(LogAmount.More) => I18n.Config_LogAmount_More(),
-                    _ => I18n.Config_LogAmount_Less()
-                });
+            value => value switch
+            {
+                nameof(LogAmount.More) => I18n.Config_LogAmount_More(),
+                _ => I18n.Config_LogAmount_Less()
+            });
     }
 }
