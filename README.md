@@ -39,7 +39,7 @@ most of the applicable attributes. Additional attributes are explained below:
 
 ### Example
 
-```json
+```jsonc
 {
   "Format": "2.4.0",
   "Changes": [
