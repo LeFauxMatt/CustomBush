@@ -1,26 +1,26 @@
-namespace LeFauxMods.CustomBush.Services;
-
-using Common.Integrations.CustomBush;
-using Models;
+using LeFauxMods.Common.Integrations.CustomBush;
+using LeFauxMods.CustomBush.Models;
 using StardewValley.TerrainFeatures;
+
+namespace LeFauxMods.CustomBush.Services;
 
 /// <inheritdoc />
 public sealed class ModApi(IModHelper helper) : ICustomBushApi
 {
     /// <inheritdoc />
-    public IEnumerable<(string Id, ICustomBush Data)> GetData() =>
-        helper.GameContent.Load<Dictionary<string, CustomBush>>(Constants.DataPath)
-            .Select(pair => (pair.Key, (ICustomBush)pair.Value));
+    public IEnumerable<ICustomBushData> GetAllBushes() =>
+        helper.GameContent.Load<Dictionary<string, CustomBushData>>(Constants.DataPath).Values;
+
+    /// <inheritdoc />
+    public IEnumerable<(string Id, ICustomBushDataOld Data)> GetData() =>
+        this.GetAllBushes().Select(data => (data.Id, (ICustomBushDataOld)data));
 
     /// <inheritdoc />
     public bool IsCustomBush(Bush bush) => this.TryGetCustomBush(bush, out _, out _);
 
     /// <inheritdoc />
-    public bool TryGetCustomBush(Bush bush, out ICustomBush? customBush) =>
-        this.TryGetCustomBush(bush, out customBush, out _);
-
-    /// <inheritdoc />
-    public bool TryGetCustomBush(Bush bush, out ICustomBush? customBush, out string? id)
+    public bool TryGetBush(Bush bush, [NotNullWhen(true)] out ICustomBushData? customBush,
+        [NotNullWhen(true)] out string? id)
     {
         customBush = null;
         if (!bush.modData.TryGetValue(Constants.ModDataId, out id))
@@ -28,7 +28,7 @@ public sealed class ModApi(IModHelper helper) : ICustomBushApi
             return false;
         }
 
-        var data = helper.GameContent.Load<Dictionary<string, CustomBush>>(Constants.DataPath);
+        var data = helper.GameContent.Load<Dictionary<string, CustomBushData>>(Constants.DataPath);
         if (!data.TryGetValue(id, out var bushData))
         {
             return false;
@@ -39,10 +39,28 @@ public sealed class ModApi(IModHelper helper) : ICustomBushApi
     }
 
     /// <inheritdoc />
-    public bool TryGetDrops(string id, out IList<ICustomBushDrop>? drops)
+    public bool TryGetCustomBush(Bush bush, [NotNullWhen(true)] out ICustomBushDataOld? customBush) =>
+        this.TryGetCustomBush(bush, out customBush, out _);
+
+    /// <inheritdoc />
+    public bool TryGetCustomBush(Bush bush, [NotNullWhen(true)] out ICustomBushDataOld? customBush,
+        [NotNullWhen(true)] out string? id)
+    {
+        if (this.TryGetBush(bush, out var customBushNew, out id))
+        {
+            customBush = customBushNew;
+            return true;
+        }
+
+        customBush = null;
+        return false;
+    }
+
+    /// <inheritdoc />
+    public bool TryGetDrops(string id, [NotNullWhen(true)] out IList<ICustomBushDrop>? drops)
     {
         drops = null;
-        var data = helper.GameContent.Load<Dictionary<string, CustomBush>>(Constants.DataPath);
+        var data = helper.GameContent.Load<Dictionary<string, CustomBushData>>(Constants.DataPath);
         if (!data.TryGetValue(id, out var bush))
         {
             return false;

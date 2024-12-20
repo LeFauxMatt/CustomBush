@@ -1,26 +1,27 @@
-namespace LeFauxMods.CustomBush.Services;
-
 using System.Globalization;
 using System.Reflection;
 using System.Reflection.Emit;
-using Common.Utilities;
 using HarmonyLib;
+using LeFauxMods.Common.Utilities;
+using LeFauxMods.CustomBush.Models;
+using LeFauxMods.CustomBush.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Models;
 using Netcode;
 using StardewValley.Characters;
 using StardewValley.Objects;
 using StardewValley.TerrainFeatures;
-using Utilities;
+
+namespace LeFauxMods.CustomBush.Services;
 
 internal static class ModPatches
 {
     private static readonly MethodInfo CheckItemPlantRules;
     private static readonly Harmony Harmony;
 
-    private static Func<Dictionary<string, CustomBush>>? getData;
-    private static Func<string, Texture2D>? getTexture;
+    private static Func<Dictionary<string, CustomBushData>> getData = null!;
+    private static Func<string, Texture2D> getTexture = null!;
+    private static IModHelper helper = null!;
 
     static ModPatches()
     {
@@ -30,10 +31,12 @@ internal static class ModPatches
             throw new MethodAccessException("Unable to access CheckItemPlantRules");
     }
 
-    private static Dictionary<string, CustomBush> Data => getData!();
+    private static Dictionary<string, CustomBushData> Data => getData();
 
-    public static void Init(Func<Dictionary<string, CustomBush>> getDataFunc, Func<string, Texture2D> getTextureFunc)
+    public static void Init(IModHelper modHelper, Func<Dictionary<string, CustomBushData>> getDataFunc,
+        Func<string, Texture2D> getTextureFunc)
     {
+        helper = modHelper;
         getData = getDataFunc;
         getTexture = getTextureFunc;
 
@@ -135,11 +138,17 @@ internal static class ModPatches
         }
 
         var texture = GetTexture(path);
+        var xOffset = 0;
+        if (__instance.modData.TryGetValue(Constants.ModDataSpriteOffset, out var spriteOffsetString) &&
+            int.TryParse(spriteOffsetString, out var spriteOffset))
+        {
+            xOffset = spriteOffset * 16;
+        }
 
         spriteBatch.Draw(
             texture,
             Game1.GlobalToLocal(Game1.viewport, new Vector2(x, y)),
-            ___sourceRect.Value,
+            ___sourceRect.Value with { X = ___sourceRect.Value.X + xOffset },
             Color.White,
             ___shakeRotation,
             new Vector2(8, 32),
@@ -160,106 +169,69 @@ internal static class ModPatches
     }
 
     [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony.")]
+    [SuppressMessage("ReSharper", "SeparateLocalFunctionsWithJumpStatement")]
     private static void Bush_inBloom_postfix(Bush __instance, ref bool __result)
     {
-        var season = __instance.Location.GetSeason();
-
-        if (__instance.modData.TryGetValue(Constants.ModDataItem, out var itemId) && !string.IsNullOrWhiteSpace(itemId))
+        if (__instance.TryGetCachedData(out var itemId, out var itemQuality, out var itemStack, out var condition))
         {
-            // Verify the cached item is for the current season
-            if (__instance.modData.TryGetValue(Constants.ModDataItemSeason, out var itemSeason) &&
-                !string.IsNullOrWhiteSpace(itemSeason) &&
-                itemSeason == nameof(season))
+            if (string.IsNullOrWhiteSpace(condition) || TestCondition(condition))
             {
                 __result = true;
                 return;
             }
 
-            Log.Trace(
-                "Cached item's {0} season does not match current {1} season. Clearing cache and recalculating item.",
-                itemSeason,
-                nameof(season));
-
-            // If the cached item is not for the current season, remove its cached info, and we'll recalculate it below.
-            // This saves us having to patch `seasonUpdate()` or `dayUpdate()`.
-            // In `dayUpdate()`, the correct `tileSheetOffset` will now be set since `inBloom()` will be accurate.
+            Log.Trace("Cached item's condition does not pass: {0}\nClearing cache and recalculating item.", condition);
             __instance.ClearCachedData();
         }
 
+        // Check if bush has custom bush data
         if (!__instance.modData.TryGetValue(Constants.ModDataId, out var id) ||
             !Data.TryGetValue(id, out var bushModel))
         {
             return;
         }
 
-        var dayOfMonth = Game1.dayOfMonth;
         var age = __instance.getAge();
 
-        // Fails basic conditions
-        if (age < bushModel.AgeToProduce || dayOfMonth < bushModel.DayToBeginProducing)
+        // Skip all checks if they were already performed at this age
+        if (__instance.modData.TryGetValue(Constants.ModDataAge, out var ageString) &&
+            int.TryParse(ageString, out var ageInt) &&
+            age == ageInt)
+        {
+            return;
+        }
+
+        // Check if bush meets the age requirement
+        if (age < bushModel.AgeToProduce)
         {
             Log.Trace(
-                "{0} will not produce. Age: {1} < {2} , Day: {3} < {4}",
+                "{0} will not produce. Age: {1} < {2}",
                 id,
                 age.ToString(CultureInfo.InvariantCulture),
-                bushModel.AgeToProduce.ToString(CultureInfo.InvariantCulture),
-                dayOfMonth.ToString(CultureInfo.InvariantCulture),
-                bushModel.DayToBeginProducing.ToString(CultureInfo.InvariantCulture));
+                bushModel.AgeToProduce.ToString(CultureInfo.InvariantCulture));
 
             __result = false;
+            __instance.modData[Constants.ModDataAge] = age.ToString(CultureInfo.InvariantCulture);
             return;
         }
 
-        Log.Trace(
-            "{0} passed basic conditions. Age: {1} >= {2} , Day: {3} >= {4}",
-            id,
-            age.ToString(CultureInfo.InvariantCulture),
-            bushModel.AgeToProduce.ToString(CultureInfo.InvariantCulture),
-            dayOfMonth.ToString(CultureInfo.InvariantCulture),
-            bushModel.DayToBeginProducing.ToString(CultureInfo.InvariantCulture));
-
-        // Fails default season conditions
-        if (!bushModel.Seasons.Any() && season == Season.Winter && !__instance.IsSheltered())
+        // Check if bush meets any condition requirement
+        condition = bushModel.ConditionsToProduce.FirstOrDefault(TestCondition);
+        if (string.IsNullOrWhiteSpace(condition))
         {
-            Log.Trace("{0} will not produce. Season: {1} and plant is outdoors.", id, season.ToString());
-
+            Log.Trace("{0} will not produce. None of the required conditions was met.", id);
             __result = false;
+            __instance.modData[Constants.ModDataAge] = age.ToString(CultureInfo.InvariantCulture);
             return;
-        }
-
-        if (!bushModel.Seasons.Any())
-        {
-            Log.Trace("{0} passed default season condition. Season: {1} or plant is indoors.", id, season.ToString());
-        }
-
-        // Fails custom season conditions
-        if (bushModel.Seasons.Any() && !bushModel.Seasons.Contains(season) && !__instance.IsSheltered())
-        {
-            Log.Trace(
-                "{0} will not produce. Season: {1} not in {2} and plant is outdoors.",
-                id,
-                season.ToString(),
-                string.Join(',', bushModel.Seasons));
-
-            __result = false;
-            return;
-        }
-
-        if (bushModel.Seasons.Any())
-        {
-            Log.Trace(
-                "{0} passed custom season conditions. Season: {1} in {2} or plant is indoors.",
-                id,
-                season.ToString(),
-                string.Join(',', bushModel.Seasons));
         }
 
         // Try to produce item
         Log.Trace("{0} attempting to produce random item.", id);
-        if (!__instance.TryProduceAny(out var item, bushModel))
+        if (!__instance.TryProduceAny(out var item, out var drop, bushModel))
         {
             Log.Trace("{0} will not produce. No item was produced.", id);
             __result = false;
+            __instance.modData[Constants.ModDataAge] = age.ToString(CultureInfo.InvariantCulture);
             return;
         }
 
@@ -271,10 +243,21 @@ internal static class ModPatches
             item.Stack);
 
         __result = true;
+        __instance.modData[Constants.ModDataAge] = age.ToString(CultureInfo.InvariantCulture);
+        __instance.modData[Constants.ModDataCondition] = condition;
         __instance.modData[Constants.ModDataItem] = item.QualifiedItemId;
-        __instance.modData[Constants.ModDataItemSeason] = nameof(season);
         __instance.modData[Constants.ModDataQuality] = item.Quality.ToString(CultureInfo.InvariantCulture);
         __instance.modData[Constants.ModDataStack] = item.Stack.ToString(CultureInfo.InvariantCulture);
+        __instance.modData[Constants.ModDataSpriteOffset] =
+            drop.SpriteOffset.ToString(CultureInfo.InvariantCulture);
+
+        bool TestCondition(string conditionToTest)
+        {
+            return GameStateQuery.CheckConditions(conditionToTest, __instance.Location, null, null, null, null,
+                __instance.Location.SeedsIgnoreSeasonsHere() || __instance.IsSheltered()
+                    ? GameStateQuery.SeasonQueryKeys
+                    : null);
+        }
     }
 
     private static IEnumerable<CodeInstruction> Bush_performToolAction_transpiler(
@@ -295,7 +278,14 @@ internal static class ModPatches
     private static void Bush_setUpSourceRect_postfix(Bush __instance, NetRectangle ___sourceRect)
     {
         if (!__instance.modData.TryGetValue(Constants.ModDataId, out var id) ||
-            !Data.TryGetValue(id, out var bushModel))
+            !Data.TryGetValue(id, out var bushModel)
+            || string.IsNullOrWhiteSpace(bushModel.Texture))
+        {
+            return;
+        }
+
+        var assetName = helper.GameContent.ParseAssetName(bushModel.Texture);
+        if (assetName.IsEquivalentTo("TileSheets/bushes"))
         {
             return;
         }
@@ -333,7 +323,7 @@ internal static class ModPatches
         Bush bush)
     {
         // Create cached item
-        if (bush.TryGetCachedData(out var itemId, out itemQuality, out var itemStack))
+        if (bush.TryGetCachedData(out var itemId, out itemQuality, out var itemStack, out _))
         {
             for (var i = 0; i < itemStack; i++)
             {
@@ -354,7 +344,7 @@ internal static class ModPatches
         bush.ClearCachedData();
 
         // Try to create random item
-        if (bush.TryProduceAny(out var item))
+        if (bush.TryProduceAny(out var item, out _))
         {
             Game1.createObjectDebris(
                 item.QualifiedItemId,
@@ -485,13 +475,13 @@ internal static class ModPatches
     private static Item JunimoHarvester_update_CreateItem(Item i, Bush bush)
     {
         // Return cached item
-        if (bush.TryGetCachedData(out var itemId, out var itemQuality, out var itemStack))
+        if (bush.TryGetCachedData(out var itemId, out var itemQuality, out var itemStack, out _))
         {
             return ItemRegistry.Create(itemId, itemStack, itemQuality);
         }
 
         // Try to return random item else return vanilla item
-        return bush.TryProduceAny(out var item) ? item : i;
+        return bush.TryProduceAny(out var item, out _) ? item : i;
     }
 
     private static IEnumerable<CodeInstruction>

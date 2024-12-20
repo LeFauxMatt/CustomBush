@@ -1,7 +1,7 @@
-namespace LeFauxMods.CustomBush;
+using LeFauxMods.Common.Models;
+using LeFauxMods.CustomBush.Models;
 
-using Common.Models;
-using Models;
+namespace LeFauxMods.CustomBush;
 
 /// <inheritdoc />
 internal sealed class ModConfig : IModConfig

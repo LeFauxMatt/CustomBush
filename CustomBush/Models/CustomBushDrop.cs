@@ -1,7 +1,7 @@
-namespace LeFauxMods.CustomBush.Models;
-
-using Common.Integrations.CustomBush;
+using LeFauxMods.Common.Integrations.CustomBush;
 using StardewValley.GameData;
+
+namespace LeFauxMods.CustomBush.Models;
 
 /// <inheritdoc cref="ICustomBushDrop" />
 internal sealed class CustomBushDrop : GenericSpawnItemDataWithCondition, ICustomBushDrop
@@ -11,4 +11,7 @@ internal sealed class CustomBushDrop : GenericSpawnItemDataWithCondition, ICusto
 
     /// <inheritdoc />
     public Season? Season { get; set; }
+
+    /// <summary>Gets or sets an offset to the texture sprite which the item is produced.</summary>
+    public int SpriteOffset { get; set; }
 }

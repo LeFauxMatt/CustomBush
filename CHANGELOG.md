@@ -1,5 +1,12 @@
 # Custom Bush Change Log
 
+## 1.4.0 (Unreleased)
+
+### Added
+
+* Added optional sprite offset depending on item drop.
+* Added the ability to override vanilla tea bush drops.
+
 ## 1.3.1 (December 17, 2024)
 
 ### Changed

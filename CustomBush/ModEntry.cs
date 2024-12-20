@@ -1,16 +1,16 @@
-namespace LeFauxMods.CustomBush;
-
-using Common.Integrations.ContentPatcher;
-using Common.Integrations.GenericModConfigMenu;
-using Common.Models;
-using Common.Services;
-using Common.Utilities;
+using LeFauxMods.Common.Integrations.ContentPatcher;
+using LeFauxMods.Common.Integrations.GenericModConfigMenu;
+using LeFauxMods.Common.Models;
+using LeFauxMods.Common.Services;
+using LeFauxMods.Common.Utilities;
+using LeFauxMods.CustomBush.Models;
+using LeFauxMods.CustomBush.Services;
+using LeFauxMods.CustomBush.Utilities;
 using Microsoft.Xna.Framework.Graphics;
-using Models;
-using Services;
 using StardewModdingAPI.Events;
 using StardewValley.Extensions;
-using Utilities;
+
+namespace LeFauxMods.CustomBush;
 
 /// <inheritdoc />
 internal sealed class ModEntry : Mod
@@ -19,7 +19,7 @@ internal sealed class ModEntry : Mod
 
     private ModConfig config = null!;
     private ConfigHelper<ModConfig> configHelper = null!;
-    private Dictionary<string, CustomBush>? data;
+    private Dictionary<string, CustomBushData>? data;
 
     /// <inheritdoc />
     public override void Entry(IModHelper helper)
@@ -32,7 +32,7 @@ internal sealed class ModEntry : Mod
 
         Log.Init(this.Monitor, this.config);
         BushExtensions.Init(this.GetData);
-        ModPatches.Init(this.GetData, this.GetTexture);
+        ModPatches.Init(this.Helper, this.GetData, this.GetTexture);
 
         // Events
         this.Helper.Events.Content.AssetRequested += OnAssetRequested;
@@ -59,33 +59,23 @@ internal sealed class ModEntry : Mod
         }
 
         e.LoadFrom(
-            static () => new Dictionary<string, CustomBush>(StringComparer.OrdinalIgnoreCase),
+            static () => new Dictionary<string, CustomBushData>(StringComparer.OrdinalIgnoreCase),
             AssetLoadPriority.Exclusive);
 
         e.Edit(
             static asset =>
             {
-                var data = asset.AsDictionary<string, CustomBush>().Data;
+                var data = asset.AsDictionary<string, CustomBushData>().Data;
                 foreach (var (key, value) in data)
                 {
                     value.Id = key;
-
-                    if (string.IsNullOrWhiteSpace(value.DisplayName))
-                    {
-                        value.DisplayName = I18n.Placeholder_Name();
-                    }
-
-                    if (string.IsNullOrWhiteSpace(value.Description))
-                    {
-                        value.Description = I18n.Placeholder_Description();
-                    }
                 }
             },
             (AssetEditPriority)int.MaxValue);
     }
 
-    private Dictionary<string, CustomBush> GetData() =>
-        this.data ??= this.Helper.GameContent.Load<Dictionary<string, CustomBush>>(Constants.DataPath);
+    private Dictionary<string, CustomBushData> GetData() =>
+        this.data ??= this.Helper.GameContent.Load<Dictionary<string, CustomBushData>>(Constants.DataPath);
 
     private Texture2D GetTexture(string path)
     {
