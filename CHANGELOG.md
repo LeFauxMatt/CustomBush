@@ -6,6 +6,11 @@
 
 * Added optional sprite offset depending on item drop.
 * Added the ability to override vanilla tea bush drops.
+* Added `ConditionsToProduce` which determines how long an item can be collected for before it's reset.
+
+### Fixed
+
+* Fixed bush saplings being able to replace existing crops in the garden pot.
 
 ## 1.3.1 (December 17, 2024)
 

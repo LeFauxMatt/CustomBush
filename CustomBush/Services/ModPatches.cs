@@ -454,7 +454,8 @@ internal static class ModPatches
             return;
         }
 
-        if (!probe)
+        var empty = __instance.hoeDirt.Value.crop is null && __instance.bush.Value is null;
+        if (!probe && empty)
         {
             __instance.bush.Value = new Bush(__instance.TileLocation, 3, __instance.Location)
             {
@@ -469,7 +470,7 @@ internal static class ModPatches
             }
         }
 
-        __result = true;
+        __result = empty;
     }
 
     private static Item JunimoHarvester_update_CreateItem(Item i, Bush bush)

@@ -18,6 +18,18 @@ In general any of the fields that applies to [Fruit
 Trees](https://stardewvalleywiki.com/Modding:Fruit_trees) can also apply to
 Custom Bushes since they share many of the same attributes.
 
+## Table of Contents
+
+- [Custom Bush](#custom-bush)
+  - [Table of Contents](#table-of-contents)
+  - [Data Format](#data-format)
+    - [Conditions To Produce](#conditions-to-produce)
+    - [Items Produced](#items-produced)
+    - [Texture](#texture)
+  - [Example](#example)
+  - [Modify Tea Bushes](#modify-tea-bushes)
+
+
 ## Data Format
 
 Refer to [Fruit Trees](https://stardewvalleywiki.com/Modding:Fruit_trees) for
@@ -44,7 +56,7 @@ most of the applicable attributes. Additional attributes are explained below:
 </tr>
 <tr>
 <td>DisplayName</td>
-<td>Mainly used for mod integration such as UI Info Suite 2 and Lookup Anything.</td>
+<td>Mainly used for mod integration such as UI Info Suite 2 and Lookup Anything. It's recommended that you append the word "Bush" in your localization if the crop is a bush. (There's really nothing limiting you from making non-bush items).</td>
 <td>Text</td>
 </tr>
 <tr>
@@ -212,3 +224,53 @@ additional sprites, and include the `SpriteOffset` attribute on the drop.
   ]
 }
 ```
+
+## Modify Tea Bushes
+
+You can override the vanilla tea sapling by adding to CustomBush data for it's
+item id `(O)251`:
+
+```jsonc
+{
+  "Format": "2.4.0",
+  "Changes": [
+    {
+      "LogName": "Load the custom bush data",
+      "Action": "EditData",
+      "Target": "furyx639.CustomBush/Data",
+      "Entries": {
+        "(O)251": {
+          "AgeToProduce": 22,
+          "ConditionsToProduce": [
+            "SEASON Spring,DAY_OF_MONTH 20 21 22 23 24 25 26 27 28"  // Vanilla harvest period
+          ],
+          "ItemsProduced": [
+            {
+              // Add a 50% chance to produce double output
+              "ItemId": "(O)251",
+              "Condition": null,
+              "Chance": 0.5,
+              "MinStack": 2,
+              "MaxStack": 2
+            },
+            {
+              "ItemId": "(O)251",
+              "Condition": null,
+              "Chance": 1.0,
+              "MinStack": 1,
+              "MaxStack": 1
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
+```
+
+Note: If you do this, it will not produce the vanilla tea sapling, so you'll
+have to manually add that back as a drop if you want it to still produce that
+item.
+
+Unless you specify a texture, the vanilla one will be used. If you want to use
+SpriteOffset then you need to also supply the texture.

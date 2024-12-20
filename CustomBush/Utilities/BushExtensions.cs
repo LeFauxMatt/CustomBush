@@ -129,7 +129,7 @@ internal static class BushExtensions
         // Try to produce the item
         return ItemQueryResolver.TryResolveRandomItem(
             drop,
-            new ItemQueryContext(bush.Location, null, null, $"custom bush '{id}' > fruit '{drop.Id}'"),
+            new ItemQueryContext(bush.Location, null, null, $"custom bush '{id}' > drop '{drop.Id}'"),
             false,
             null,
             null,
