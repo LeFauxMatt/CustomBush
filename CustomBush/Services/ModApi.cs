@@ -1,5 +1,6 @@
 using LeFauxMods.Common.Integrations.CustomBush;
 using LeFauxMods.CustomBush.Models;
+using LeFauxMods.CustomBush.Utilities;
 using StardewValley.TerrainFeatures;
 
 namespace LeFauxMods.CustomBush.Services;
@@ -69,4 +70,9 @@ public sealed class ModApi(IModHelper helper) : ICustomBushApi
         drops = bush.ItemsProduced.ConvertAll(ICustomBushDrop (drop) => drop);
         return true;
     }
+
+    /// <inheritdoc />
+    public bool TryGetModData(Bush bush, [NotNullWhen(true)] out string? itemId, out int itemQuality, out int itemStack,
+        out string? condition) =>
+        bush.TryGetCachedData(out itemId, out itemQuality, out itemStack, out condition);
 }

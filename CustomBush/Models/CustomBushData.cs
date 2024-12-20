@@ -23,12 +23,18 @@ internal sealed class CustomBushData : ICustomBushData
             {
                 var sb = new StringBuilder();
 
-                sb.Append(this.DayToBeginProducing > 0 ? "SEASON_DAY " : "SEASON ")
+                sb.Append("SEASON ")
                     .Append(season.ToString());
 
-                if (this.DayToBeginProducing > 0)
+                if (this.DayToBeginProducing <= 0)
                 {
-                    sb.Append(' ').Append(this.DayToBeginProducing);
+                    return sb.ToString();
+                }
+
+                sb.Append(",DAY_OF_MONTH ");
+                for (var day = this.DayToBeginProducing; day <= 28; day++)
+                {
+                    sb.Append(' ').Append(day);
                 }
 
                 return sb.ToString();
