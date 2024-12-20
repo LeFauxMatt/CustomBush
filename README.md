@@ -30,12 +30,13 @@ most of the applicable attributes. Additional attributes are explained below:
 | DisplayName         | Mainly used for mod integration such as UI Info Suite 2 and Lookup Anything.                     |
 | Description         | Mainly used for mod integration such as UI Info Suite 2 and Lookup Anything.                     |
 | IndoorTexture       | The texture to use when the bush is planted indoors in a pot.                                    |
-| Texture             | The texture to use when the bush is planted under any other conditions.                          |
+| Texture             | The texture to use when the bush is planted under any other conditions.<sup>2</sup>                          |
 | TextureSpriteRow    | The row that will be used to draw the bush. Each bush has a height of 32 pixels.                 |
-| ItemsProduced       | A list of items that can be dropped and their conditions.<sup>2</sup>                            |
+| ItemsProduced       | A list of items that can be dropped and their conditions.<sup>3</sup>                            |
 
 1. See [ConditionsToProduce](#conditions-to-produce)
-2. See [Drops](#drops).
+2. See [Texture](#texture)
+3. See [Drops](#drops)
 
 ### Example
 
@@ -130,3 +131,16 @@ example is that you can have one condition for spring, and another one for
 summer. When an item is produced in the spring, as soon as it changes to summer,
 if the item isn't collected, that item will be lost and the bush can reroll for
 a different summer item.
+
+## Texture
+
+At a minimum, the texture should be a 64x32 image containing 4 16x32 sprites
+representing each growth stage of the bush from being planted (first) to being
+in bloom (last).
+
+Multiple bushes can share the same texure by increasing the height in 32 pixel
+increments, and adding the `TextureSpriteRow` attribute.
+
+If you want to use a different texture for the bloomed bush based on the item it
+is currently producing, you can expand the width in 16 pixel increments, add the
+additional sprites, and include the `SpriteOffset` attribute on the drop.
