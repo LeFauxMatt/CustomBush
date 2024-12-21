@@ -1,6 +1,6 @@
 # Custom Bush Change Log
 
-## 1.4.0 (Unreleased)
+## 1.4.0 (December 21, 2024)
 
 ### Added
 
