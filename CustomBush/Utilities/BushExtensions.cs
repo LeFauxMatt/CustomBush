@@ -1,36 +1,47 @@
-namespace LeFauxMods.CustomBush.Utilities;
-
-using Common.Integrations.CustomBush;
-using Common.Utilities;
-using Models;
+using LeFauxMods.Common.Integrations.CustomBush;
+using LeFauxMods.Common.Utilities;
+using LeFauxMods.CustomBush.Models;
 using StardewValley.Extensions;
 using StardewValley.Internal;
 using StardewValley.TerrainFeatures;
 
+namespace LeFauxMods.CustomBush.Utilities;
+
 internal static class BushExtensions
 {
-    private static Func<Dictionary<string, CustomBush>>? getData;
+    private static Func<Dictionary<string, CustomBushData>>? getData;
 
-    private static Dictionary<string, CustomBush> Data => getData!();
+    private static Dictionary<string, CustomBushData> Data => getData!();
 
     public static void ClearCachedData(this Bush bush)
     {
+        _ = bush.modData.Remove(Constants.ModDataCondition);
         _ = bush.modData.Remove(Constants.ModDataItem);
         _ = bush.modData.Remove(Constants.ModDataItemSeason);
         _ = bush.modData.Remove(Constants.ModDataQuality);
         _ = bush.modData.Remove(Constants.ModDataStack);
+        _ = bush.modData.Remove(Constants.ModDataSpriteOffset);
     }
 
-    public static void Init(Func<Dictionary<string, CustomBush>> gD) => getData ??= gD;
+    public static void Init(Func<Dictionary<string, CustomBushData>> getter) => getData ??= getter;
 
-    public static bool TryGetCachedData(this Bush bush, out string? itemId, out int itemQuality, out int itemStack)
+    public static bool TryGetCachedData(this Bush bush, [NotNullWhen(true)] out string? itemId, out int itemQuality,
+        out int itemStack, out string? condition)
     {
         itemQuality = 1;
         itemStack = 1;
 
         if (!bush.modData.TryGetValue(Constants.ModDataItem, out itemId) || string.IsNullOrWhiteSpace(itemId))
         {
+            condition = null;
             return false;
+        }
+
+        if (!bush.modData.TryGetValue(Constants.ModDataCondition, out condition) &&
+            bush.modData.TryGetValue(Constants.ModDataItemSeason, out var itemSeason) &&
+            Enum.TryParse(itemSeason, out Season season))
+        {
+            condition = $"SEASON {season.ToString()}";
         }
 
         if (bush.modData.TryGetValue(Constants.ModDataQuality, out var qualityString) &&
@@ -48,20 +59,23 @@ internal static class BushExtensions
         return true;
     }
 
-    public static bool TryProduceAny(this Bush bush, [NotNullWhen(true)] out Item? item, CustomBush? customBush = null)
+    public static bool TryProduceAny(this Bush bush, [NotNullWhen(true)] out Item? item,
+        [NotNullWhen(true)] out CustomBushDrop? drop, CustomBushData? customBush = null)
     {
         if (customBush is null)
         {
             if (!bush.modData.TryGetValue(Constants.ModDataId, out var id) || !Data.TryGetValue(id, out customBush))
             {
                 item = null;
+                drop = null;
                 return false;
             }
         }
 
-        foreach (var drop in customBush.ItemsProduced)
+        foreach (var itemProduced in customBush.ItemsProduced)
         {
-            item = bush.TryProduceOne(drop);
+            item = bush.TryProduceOne(itemProduced);
+            drop = itemProduced;
             if (item is not null)
             {
                 return true;
@@ -69,10 +83,11 @@ internal static class BushExtensions
         }
 
         item = null;
+        drop = null;
         return false;
     }
 
-    public static Item? TryProduceOne(this Bush bush, ICustomBushDrop drop)
+    private static Item? TryProduceOne(this Bush bush, ICustomBushDrop drop)
     {
         const string logFormat = "{0} did not select {1}. Failed: {2}";
 
@@ -114,7 +129,7 @@ internal static class BushExtensions
         // Try to produce the item
         return ItemQueryResolver.TryResolveRandomItem(
             drop,
-            new ItemQueryContext(bush.Location, null, null, $"custom bush '{id}' > fruit '{drop.Id}'"),
+            new ItemQueryContext(bush.Location, null, null, $"custom bush '{id}' > drop '{drop.Id}'"),
             false,
             null,
             null,
