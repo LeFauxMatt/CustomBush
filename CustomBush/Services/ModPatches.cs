@@ -172,7 +172,7 @@ internal static class ModPatches
     [SuppressMessage("ReSharper", "SeparateLocalFunctionsWithJumpStatement")]
     private static void Bush_inBloom_postfix(Bush __instance, ref bool __result)
     {
-        if (__instance.TryGetCachedData(out var itemId, out var itemQuality, out var itemStack, out var condition))
+        if (__instance.TryGetCachedData(out _, out _, out _, out var condition))
         {
             if (string.IsNullOrWhiteSpace(condition) || TestCondition(condition))
             {
@@ -198,6 +198,7 @@ internal static class ModPatches
             int.TryParse(ageString, out var ageInt) &&
             age == ageInt)
         {
+            __result = false;
             return;
         }
 

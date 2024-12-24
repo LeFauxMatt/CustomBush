@@ -1,5 +1,11 @@
 # Custom Bush Change Log
 
+## 1.4.1 (Unreleased)
+
+### Fixed
+
+* Fixed bushes not in harvest can produce tea leaves.
+
 ## 1.4.0 (December 21, 2024)
 
 ### Added
