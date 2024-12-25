@@ -1,10 +1,10 @@
+using LeFauxMods.Common.Interface;
 using LeFauxMods.Common.Models;
-using LeFauxMods.CustomBush.Models;
 
 namespace LeFauxMods.CustomBush;
 
 /// <inheritdoc />
-internal sealed class ModConfig : IModConfig
+internal sealed class ModConfig : IConfigWithLogAmount
 {
     /// <inheritdoc />
     public LogAmount LogAmount { get; set; } = LogAmount.Less;

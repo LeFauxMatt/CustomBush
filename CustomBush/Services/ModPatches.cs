@@ -17,19 +17,15 @@ namespace LeFauxMods.CustomBush.Services;
 internal static class ModPatches
 {
     private static readonly MethodInfo CheckItemPlantRules;
-    private static readonly Harmony Harmony;
 
     private static Func<Dictionary<string, CustomBushData>> getData = null!;
     private static Func<string, Texture2D> getTexture = null!;
     private static IModHelper helper = null!;
 
-    static ModPatches()
-    {
-        Harmony = new Harmony(Constants.ModId);
+    static ModPatches() =>
         CheckItemPlantRules =
             typeof(GameLocation).GetMethod("CheckItemPlantRules", BindingFlags.NonPublic | BindingFlags.Instance) ??
             throw new MethodAccessException("Unable to access CheckItemPlantRules");
-    }
 
     private static Dictionary<string, CustomBushData> Data => getData();
 
@@ -40,54 +36,56 @@ internal static class ModPatches
         getData = getDataFunc;
         getTexture = getTextureFunc;
 
-        _ = Harmony.Patch(
+        var harmony = new Harmony(Constants.ModId);
+
+        _ = harmony.Patch(
             AccessTools.DeclaredMethod(typeof(Bush), nameof(Bush.draw), [typeof(SpriteBatch)]),
             new HarmonyMethod(typeof(ModPatches), nameof(Bush_draw_prefix)));
 
-        _ = Harmony.Patch(
+        _ = harmony.Patch(
             AccessTools.DeclaredMethod(typeof(Bush), nameof(Bush.GetShakeOffItem)),
             postfix: new HarmonyMethod(typeof(ModPatches), nameof(Bush_GetShakeOffItem_postfix)));
 
-        _ = Harmony.Patch(
+        _ = harmony.Patch(
             AccessTools.DeclaredMethod(typeof(Bush), nameof(Bush.inBloom)),
             postfix: new HarmonyMethod(typeof(ModPatches), nameof(Bush_inBloom_postfix)));
 
-        _ = Harmony.Patch(
+        _ = harmony.Patch(
             AccessTools.DeclaredMethod(typeof(Bush), nameof(Bush.performToolAction)),
             transpiler: new HarmonyMethod(typeof(ModPatches), nameof(Bush_performToolAction_transpiler)));
 
-        _ = Harmony.Patch(
+        _ = harmony.Patch(
             AccessTools.DeclaredMethod(typeof(Bush), nameof(Bush.setUpSourceRect)),
             postfix: new HarmonyMethod(typeof(ModPatches), nameof(Bush_setUpSourceRect_postfix)));
 
-        _ = Harmony.Patch(
+        _ = harmony.Patch(
             AccessTools.DeclaredMethod(typeof(Bush), nameof(Bush.shake)),
             transpiler: new HarmonyMethod(typeof(ModPatches), nameof(Bush_shake_transpiler)));
 
-        _ = Harmony.Patch(
+        _ = harmony.Patch(
             typeof(GameLocation).GetMethod(
                 nameof(GameLocation.CheckItemPlantRules),
                 BindingFlags.Public | BindingFlags.Instance) ??
             throw new MethodAccessException("Unable to access CheckItemPlantRules"),
             postfix: new HarmonyMethod(typeof(ModPatches), nameof(GameLocation_CheckItemPlantRules_postfix)));
 
-        _ = Harmony.Patch(
+        _ = harmony.Patch(
             AccessTools.DeclaredMethod(typeof(HoeDirt), nameof(HoeDirt.canPlantThisSeedHere)),
             postfix: new HarmonyMethod(typeof(ModPatches), nameof(HoeDirt_canPlantThisSeedHere_postfix)));
 
-        _ = Harmony.Patch(
+        _ = harmony.Patch(
             AccessTools.DeclaredMethod(typeof(IndoorPot), nameof(IndoorPot.performObjectDropInAction)),
             postfix: new HarmonyMethod(typeof(ModPatches), nameof(IndoorPot_performObjectDropInAction_postfix)));
 
-        _ = Harmony.Patch(
+        _ = harmony.Patch(
             AccessTools.DeclaredMethod(typeof(JunimoHarvester), nameof(JunimoHarvester.update)),
             transpiler: new HarmonyMethod(typeof(ModPatches), nameof(JunimoHarvester_update_transpiler)));
 
-        _ = Harmony.Patch(
+        _ = harmony.Patch(
             AccessTools.DeclaredMethod(typeof(SObject), nameof(SObject.IsTeaSapling)),
             postfix: new HarmonyMethod(typeof(ModPatches), nameof(Object_IsTeaSapling_postfix)));
 
-        _ = Harmony.Patch(
+        _ = harmony.Patch(
             AccessTools.DeclaredMethod(typeof(SObject), nameof(SObject.placementAction)),
             transpiler: new HarmonyMethod(typeof(ModPatches), nameof(Object_placementAction_transpiler)));
     }
@@ -172,7 +170,7 @@ internal static class ModPatches
     [SuppressMessage("ReSharper", "SeparateLocalFunctionsWithJumpStatement")]
     private static void Bush_inBloom_postfix(Bush __instance, ref bool __result)
     {
-        if (__instance.TryGetCachedData(out var itemId, out var itemQuality, out var itemStack, out var condition))
+        if (__instance.TryGetCachedData(out _, out _, out _, out var condition))
         {
             if (string.IsNullOrWhiteSpace(condition) || TestCondition(condition))
             {
@@ -198,6 +196,7 @@ internal static class ModPatches
             int.TryParse(ageString, out var ageInt) &&
             age == ageInt)
         {
+            __result = false;
             return;
         }
 
