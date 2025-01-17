@@ -1,5 +1,6 @@
 using LeFauxMods.Common.Integrations.CustomBush;
 using LeFauxMods.Common.Utilities;
+using LeFauxMods.CustomBush.Models;
 using LeFauxMods.CustomBush.Services;
 using StardewValley.Extensions;
 using StardewValley.Internal;
@@ -9,17 +10,11 @@ namespace LeFauxMods.CustomBush.Utilities;
 
 internal static class BushExtensions
 {
-    public static void ClearCachedData(this Bush bush)
-    {
-        _ = bush.modData.Remove(Constants.ModDataCondition);
-        _ = bush.modData.Remove(Constants.ModDataItem);
-        _ = bush.modData.Remove(Constants.ModDataItemSeason);
-        _ = bush.modData.Remove(Constants.ModDataQuality);
-        _ = bush.modData.Remove(Constants.ModDataStack);
-        _ = bush.modData.Remove(Constants.ModDataSpriteOffset);
-        bush.tileSheetOffset.Value = 0;
-        bush.setUpSourceRect();
-    }
+    public static bool TestCondition(this Bush bush, string condition) =>
+        GameStateQuery.CheckConditions(condition, bush.Location, null, null, null, null,
+            bush.Location.SeedsIgnoreSeasonsHere() || bush.IsSheltered()
+                ? GameStateQuery.SeasonQueryKeys
+                : null);
 
     public static bool TryProduceItem(
         this Bush bush,
@@ -30,13 +25,12 @@ internal static class BushExtensions
         item = null;
         drop = null;
 
-        if (!bush.modData.TryGetValue(Constants.ModDataId, out var id) ||
-            !ModState.Data.TryGetValue(id, out var customBush))
+        if (!ModState.Api.TryGetBush(bush, out var customBush, out var id) || customBush is not CustomBushData data)
         {
             return false;
         }
 
-        foreach (var itemProduced in customBush.ItemsProduced)
+        foreach (var itemProduced in data.ItemsProduced)
         {
             // Test overall chance
             if (!Game1.random.NextBool(itemProduced.Chance))

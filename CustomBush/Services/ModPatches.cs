@@ -96,8 +96,8 @@ internal static class ModPatches
             return true;
         }
 
-        var x = (__instance.Tile.X * 64) + 32;
-        var y = (__instance.Tile.Y * 64) + 64 + ___yDrawOffset;
+        var x = (__instance.Tile.X + 0.5f) * Game1.tileSize;
+        var y = ((__instance.Tile.Y + 1f) * Game1.tileSize) + ___yDrawOffset;
         if (__instance.drawShadow.Value)
         {
             spriteBatch.Draw(
@@ -107,7 +107,7 @@ internal static class ModPatches
                 Color.White,
                 0,
                 new Vector2(Game1.shadowTexture.Bounds.Center.X, Game1.shadowTexture.Bounds.Center.Y),
-                4,
+                Game1.pixelZoom,
                 SpriteEffects.None,
                 1E-06f);
         }
@@ -126,7 +126,7 @@ internal static class ModPatches
             Color.White,
             ___shakeRotation,
             new Vector2(8, 32),
-            4,
+            Game1.pixelZoom,
             __instance.flipped.Value ? SpriteEffects.FlipHorizontally : SpriteEffects.None,
             ((__instance.getBoundingBox().Center.Y + 48) / 10000f) - (__instance.Tile.X / 1000000f));
 
@@ -147,27 +147,15 @@ internal static class ModPatches
     [SuppressMessage("ReSharper", "SeparateLocalFunctionsWithJumpStatement", Justification = "Harmony")]
     private static void Bush_inBloom_postfix(Bush __instance, ref bool __result)
     {
-        if (__instance.tileSheetOffset.Value == 1)
+        // Check cached values
+        if (ModState.Api.TryGetModData(__instance, out _, out _, out _, out _))
         {
             __result = true;
             return;
         }
 
-        if (ModState.Api.TryGetModData(__instance, out _, out _, out _, out var condition))
-        {
-            if (string.IsNullOrWhiteSpace(condition) || TestCondition(condition))
-            {
-                __result = true;
-                return;
-            }
-
-            Log.Trace("Cached item's condition does not pass: {0}\nClearing cache and recalculating item.", condition);
-            __instance.ClearCachedData();
-        }
-
         // Check if bush has custom bush data
-        if (!__instance.modData.TryGetValue(Constants.ModDataId, out var id) ||
-            !ModState.Data.TryGetValue(id, out var bushModel))
+        if (!ModState.Api.TryGetBush(__instance, out var customBush, out var id))
         {
             return;
         }
@@ -175,35 +163,33 @@ internal static class ModPatches
         var age = __instance.getAge();
 
         // Skip all checks if they were already performed at this age
-        if (__instance.modData.TryGetValue(Constants.ModDataAge, out var ageString) &&
-            int.TryParse(ageString, out var ageInt) &&
-            age == ageInt)
+        if (__instance.modData.GetInt(Constants.ModDataAge) == age)
         {
             __result = false;
             return;
         }
 
+        __instance.modData[Constants.ModDataAge] = age.ToString(CultureInfo.InvariantCulture);
+
         // Check if bush meets the age requirement
-        if (age < bushModel.AgeToProduce)
+        if (age < customBush.AgeToProduce)
         {
             Log.Trace(
                 "{0} will not produce. Age: {1} < {2}",
                 id,
                 age.ToString(CultureInfo.InvariantCulture),
-                bushModel.AgeToProduce.ToString(CultureInfo.InvariantCulture));
+                customBush.AgeToProduce.ToString(CultureInfo.InvariantCulture));
 
             __result = false;
-            __instance.modData[Constants.ModDataAge] = age.ToString(CultureInfo.InvariantCulture);
             return;
         }
 
         // Check if bush meets any condition requirement
-        condition = bushModel.ConditionsToProduce.FirstOrDefault(TestCondition);
+        var condition = customBush.ConditionsToProduce.FirstOrDefault(__instance.TestCondition);
         if (string.IsNullOrWhiteSpace(condition))
         {
             Log.Trace("{0} will not produce. None of the required conditions was met.", id);
             __result = false;
-            __instance.modData[Constants.ModDataAge] = age.ToString(CultureInfo.InvariantCulture);
             return;
         }
 
@@ -213,7 +199,6 @@ internal static class ModPatches
         {
             Log.Trace("{0} will not produce. No item was produced.", id);
             __result = false;
-            __instance.modData[Constants.ModDataAge] = age.ToString(CultureInfo.InvariantCulture);
             return;
         }
 
@@ -225,7 +210,6 @@ internal static class ModPatches
             item.Stack);
 
         __result = true;
-        __instance.modData[Constants.ModDataAge] = age.ToString(CultureInfo.InvariantCulture);
         __instance.modData[Constants.ModDataCondition] = condition;
         __instance.modData[Constants.ModDataItem] = item.QualifiedItemId;
         __instance.modData[Constants.ModDataQuality] = item.Quality.ToString(CultureInfo.InvariantCulture);
@@ -235,14 +219,6 @@ internal static class ModPatches
         {
             __instance.modData[Constants.ModDataSpriteOffset] =
                 customBushDrop.SpriteOffset.ToString(CultureInfo.InvariantCulture);
-        }
-
-        bool TestCondition(string conditionToTest)
-        {
-            return GameStateQuery.CheckConditions(conditionToTest, __instance.Location, null, null, null, null,
-                __instance.Location.SeedsIgnoreSeasonsHere() || __instance.IsSheltered()
-                    ? GameStateQuery.SeasonQueryKeys
-                    : null);
         }
     }
 
@@ -263,23 +239,22 @@ internal static class ModPatches
     [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony")]
     private static void Bush_setUpSourceRect_postfix(Bush __instance, NetRectangle ___sourceRect)
     {
-        if (!__instance.modData.TryGetValue(Constants.ModDataId, out var id) ||
-            !ModState.Data.TryGetValue(id, out var bushModel)
-            || string.IsNullOrWhiteSpace(bushModel.Texture))
+        if (!ModState.Api.TryGetBush(__instance, out var customBush, out _) ||
+            string.IsNullOrWhiteSpace(customBush.Texture))
         {
             return;
         }
 
-        var assetName = Helper.GameContent.ParseAssetName(bushModel.Texture);
+        var assetName = Helper.GameContent.ParseAssetName(customBush.Texture);
         if (assetName.IsEquivalentTo("TileSheets/bushes"))
         {
             return;
         }
 
         var age = __instance.getAge();
-        var growthPercent = (float)age / bushModel.AgeToProduce;
+        var growthPercent = (float)age / customBush.AgeToProduce;
         var x = (Math.Min(2, (int)(2 * growthPercent)) + __instance.tileSheetOffset.Value) * 16;
-        var y = bushModel.TextureSpriteRow * 16;
+        var y = customBush.TextureSpriteRow * 16;
         ___sourceRect.Value = new Rectangle(x, y, 16, 32);
     }
 
@@ -309,11 +284,8 @@ internal static class ModPatches
                     location);
             }
 
-            bush.ClearCachedData();
             return;
         }
-
-        bush.ClearCachedData();
 
         // Try to create random item
         if (bush.TryProduceItem(out var item, out _))
@@ -444,7 +416,7 @@ internal static class ModPatches
     }
 
     private static Item JunimoHarvester_update_CreateItem(Item i, Bush bush) =>
-        ModState.Api.TryGetShakeOffItem(bush, out var item, out _) ? item : i;
+        ModState.Api.TryGetShakeOffItem(bush, out var item) ? item : i;
 
     private static IEnumerable<CodeInstruction>
         JunimoHarvester_update_transpiler(IEnumerable<CodeInstruction> instructions) =>

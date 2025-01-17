@@ -1,4 +1,4 @@
-﻿using LeFauxMods.Common.Integrations.CustomBush;
+using LeFauxMods.Common.Integrations.CustomBush;
 using Microsoft.Xna.Framework;
 using Pathoschild.Stardew.Automate;
 using StardewValley.TerrainFeatures;
@@ -51,12 +51,16 @@ internal sealed class Automatable : IMachine
     public ITrackedStack? GetOutput()
     {
         if (!this.customBush.IsLoaded ||
-            !this.customBush.Api.TryGetShakeOffItem(this.bush, out var item, out var reduce))
+            !this.customBush.Api.TryGetShakeOffItem(this.bush, out var item))
         {
             return null;
         }
 
-        return new TrackedItem(item, _ => reduce());
+        return new TrackedItem(item, _ =>
+        {
+            this.bush.tileSheetOffset.Value = 0;
+            this.bush.setUpSourceRect();
+        });
     }
 
     /// <inheritdoc />
