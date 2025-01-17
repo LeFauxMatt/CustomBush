@@ -180,7 +180,7 @@ additional sprites, and include the `SpriteOffset` attribute on the drop.
         "{{ModId}}_MyBush_Sapling": {
           "Name": "MyBush_Sapling",
           "DisplayName": "{{i18n: MyBush_Sapling.name}}",
-          "DisplayName": "{{i18n: MyBush_Sapling.description}}",
+          "Description": "{{i18n: MyBush_Sapling.description}}",
           "Type": "Basic",
           "Category": -74,
           "Texture": "{{InternalAssetKey: assets/MyBush_Sapling.png}}",

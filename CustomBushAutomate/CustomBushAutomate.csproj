@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<Import Project="..\FauxCore\FauxCommon\Common.targets"/>
+	<Import Project="..\FauxCore\FauxCommon\FauxCommon.projitems" Label="Shared" />
+
+	<PropertyGroup>
+		<Name>Custom Bush Automate</Name>
+		<Description>Provides integration between Custom Bush and Automate.</Description>
+		<Version>1.0.0-beta.1</Version>
+		<EnableHarmony>true</EnableHarmony>
+		<RootNamespace>LeFauxMods.CustomBushAutomate</RootNamespace>
+		<UniqueId>furyx639.CustomBushAutomate</UniqueId>
+		<UpdateKeys>Nexus:20619@Automate, CurseForge:998265, ModDrop:1547214</UpdateKeys>
+		<RepositoryUrl>https://github.com/LeFauxMatt/CustomBush</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<Reference Include="Automate">
+			<HintPath>$(GameModsPath)\Automate\Automate.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+	</ItemGroup>
+
+	<ItemGroup>
+		<SMAPIDependency Include="furyx639.CustomBush" Version="1.5.0-beta.1" required="true" />
+		<SMAPIDependency Include="Pathoschild.Automate" Version="2.3.2" required="true" />
+	</ItemGroup>
+
+</Project>

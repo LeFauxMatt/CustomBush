@@ -18,24 +18,16 @@ internal static class ModPatches
 {
     private static readonly MethodInfo CheckItemPlantRules;
 
-    private static Func<Dictionary<string, CustomBushData>> getData = null!;
-    private static Func<string, Texture2D> getTexture = null!;
-    private static IModHelper helper = null!;
+    private static IModHelper Helper = null!;
 
     static ModPatches() =>
         CheckItemPlantRules =
             typeof(GameLocation).GetMethod("CheckItemPlantRules", BindingFlags.NonPublic | BindingFlags.Instance) ??
             throw new MethodAccessException("Unable to access CheckItemPlantRules");
 
-    private static Dictionary<string, CustomBushData> Data => getData();
-
-    public static void Init(IModHelper modHelper, Func<Dictionary<string, CustomBushData>> getDataFunc,
-        Func<string, Texture2D> getTextureFunc)
+    public static void Init(IModHelper modHelper)
     {
-        helper = modHelper;
-        getData = getDataFunc;
-        getTexture = getTextureFunc;
-
+        Helper = modHelper;
         var harmony = new Harmony(Constants.ModId);
 
         _ = harmony.Patch(
@@ -90,8 +82,8 @@ internal static class ModPatches
             transpiler: new HarmonyMethod(typeof(ModPatches), nameof(Object_placementAction_transpiler)));
     }
 
-    [SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "Harmony.")]
-    [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony.")]
+    [SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "Harmony")]
+    [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony")]
     private static bool Bush_draw_prefix(
         Bush __instance,
         SpriteBatch spriteBatch,
@@ -99,8 +91,7 @@ internal static class ModPatches
         NetRectangle ___sourceRect,
         float ___yDrawOffset)
     {
-        if (!__instance.modData.TryGetValue(Constants.ModDataId, out var id) ||
-            !Data.TryGetValue(id, out var bushModel))
+        if (!ModState.Api.TryGetTexture(__instance, out var texture))
         {
             return true;
         }
@@ -121,21 +112,6 @@ internal static class ModPatches
                 1E-06f);
         }
 
-        string path;
-        if (!__instance.IsSheltered())
-        {
-            path = bushModel.Texture;
-        }
-        else if (!string.IsNullOrWhiteSpace(bushModel.IndoorTexture))
-        {
-            path = bushModel.IndoorTexture;
-        }
-        else
-        {
-            path = bushModel.Texture;
-        }
-
-        var texture = GetTexture(path);
         var xOffset = 0;
         if (__instance.modData.TryGetValue(Constants.ModDataSpriteOffset, out var spriteOffsetString) &&
             int.TryParse(spriteOffsetString, out var spriteOffset))
@@ -157,7 +133,8 @@ internal static class ModPatches
         return false;
     }
 
-    [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony.")]
+    [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony")]
+    [SuppressMessage("ReSharper", "SuggestBaseTypeForParameter", Justification = "Harmony")]
     private static void Bush_GetShakeOffItem_postfix(Bush __instance, ref string __result)
     {
         if (__instance.modData.TryGetValue(Constants.ModDataItem, out var itemId) && !string.IsNullOrWhiteSpace(itemId))
@@ -166,11 +143,17 @@ internal static class ModPatches
         }
     }
 
-    [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony.")]
-    [SuppressMessage("ReSharper", "SeparateLocalFunctionsWithJumpStatement")]
+    [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony")]
+    [SuppressMessage("ReSharper", "SeparateLocalFunctionsWithJumpStatement", Justification = "Harmony")]
     private static void Bush_inBloom_postfix(Bush __instance, ref bool __result)
     {
-        if (__instance.TryGetCachedData(out _, out _, out _, out var condition))
+        if (__instance.tileSheetOffset.Value == 1)
+        {
+            __result = true;
+            return;
+        }
+
+        if (ModState.Api.TryGetModData(__instance, out _, out _, out _, out var condition))
         {
             if (string.IsNullOrWhiteSpace(condition) || TestCondition(condition))
             {
@@ -184,7 +167,7 @@ internal static class ModPatches
 
         // Check if bush has custom bush data
         if (!__instance.modData.TryGetValue(Constants.ModDataId, out var id) ||
-            !Data.TryGetValue(id, out var bushModel))
+            !ModState.Data.TryGetValue(id, out var bushModel))
         {
             return;
         }
@@ -226,7 +209,7 @@ internal static class ModPatches
 
         // Try to produce item
         Log.Trace("{0} attempting to produce random item.", id);
-        if (!__instance.TryProduceAny(out var item, out var drop, bushModel))
+        if (!__instance.TryProduceItem(out var item, out var drop))
         {
             Log.Trace("{0} will not produce. No item was produced.", id);
             __result = false;
@@ -247,8 +230,12 @@ internal static class ModPatches
         __instance.modData[Constants.ModDataItem] = item.QualifiedItemId;
         __instance.modData[Constants.ModDataQuality] = item.Quality.ToString(CultureInfo.InvariantCulture);
         __instance.modData[Constants.ModDataStack] = item.Stack.ToString(CultureInfo.InvariantCulture);
-        __instance.modData[Constants.ModDataSpriteOffset] =
-            drop.SpriteOffset.ToString(CultureInfo.InvariantCulture);
+
+        if (drop is CustomBushDrop customBushDrop)
+        {
+            __instance.modData[Constants.ModDataSpriteOffset] =
+                customBushDrop.SpriteOffset.ToString(CultureInfo.InvariantCulture);
+        }
 
         bool TestCondition(string conditionToTest)
         {
@@ -263,7 +250,7 @@ internal static class ModPatches
         IEnumerable<CodeInstruction> instructions)
     {
         var method = AccessTools.GetDeclaredMethods(typeof(ItemRegistry))
-            .First(method => method.Name == nameof(ItemRegistry.Create) && !method.IsGenericMethod);
+            .First(static method => method.Name == nameof(ItemRegistry.Create) && !method.IsGenericMethod);
 
         return new CodeMatcher(instructions).MatchStartForward(new CodeMatch(instruction => instruction.Calls(method)))
             .RemoveInstruction()
@@ -273,44 +260,30 @@ internal static class ModPatches
             .InstructionEnumeration();
     }
 
-    [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony.")]
+    [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony")]
     private static void Bush_setUpSourceRect_postfix(Bush __instance, NetRectangle ___sourceRect)
     {
         if (!__instance.modData.TryGetValue(Constants.ModDataId, out var id) ||
-            !Data.TryGetValue(id, out var bushModel)
+            !ModState.Data.TryGetValue(id, out var bushModel)
             || string.IsNullOrWhiteSpace(bushModel.Texture))
         {
             return;
         }
 
-        var assetName = helper.GameContent.ParseAssetName(bushModel.Texture);
+        var assetName = Helper.GameContent.ParseAssetName(bushModel.Texture);
         if (assetName.IsEquivalentTo("TileSheets/bushes"))
         {
             return;
-        }
-
-        if (!__instance.IsSheltered())
-        {
-            __instance.modData[Constants.ModDataTexture] = bushModel.Texture;
-        }
-        else if (!string.IsNullOrWhiteSpace(bushModel.IndoorTexture))
-        {
-            __instance.modData[Constants.ModDataTexture] = bushModel.IndoorTexture;
-        }
-        else
-        {
-            __instance.modData[Constants.ModDataTexture] = bushModel.Texture;
         }
 
         var age = __instance.getAge();
         var growthPercent = (float)age / bushModel.AgeToProduce;
         var x = (Math.Min(2, (int)(2 * growthPercent)) + __instance.tileSheetOffset.Value) * 16;
         var y = bushModel.TextureSpriteRow * 16;
-
         ___sourceRect.Value = new Rectangle(x, y, 16, 32);
     }
 
-    [SuppressMessage("ReSharper", "RedundantAssignment", Justification = "Harmony.")]
+    [SuppressMessage("ReSharper", "RedundantAssignment", Justification = "Harmony")]
     private static void Bush_shake_CreateObjectDebris(
         string id,
         int xTile,
@@ -322,7 +295,7 @@ internal static class ModPatches
         Bush bush)
     {
         // Create cached item
-        if (bush.TryGetCachedData(out var itemId, out itemQuality, out var itemStack, out _))
+        if (ModState.Api.TryGetModData(bush, out var itemId, out itemQuality, out var itemStack, out _))
         {
             for (var i = 0; i < itemStack; i++)
             {
@@ -343,7 +316,7 @@ internal static class ModPatches
         bush.ClearCachedData();
 
         // Try to create random item
-        if (bush.TryProduceAny(out var item, out _))
+        if (bush.TryProduceItem(out var item, out _))
         {
             Game1.createObjectDebris(
                 item.QualifiedItemId,
@@ -372,7 +345,7 @@ internal static class ModPatches
         new CodeMatcher(instructions)
             .MatchStartForward(
                 new CodeMatch(
-                    instruction => instruction.Calls(
+                    static instruction => instruction.Calls(
                         AccessTools.DeclaredMethod(
                             typeof(Game1),
                             nameof(Game1.createObjectDebris),
@@ -391,6 +364,7 @@ internal static class ModPatches
                 CodeInstruction.Call(typeof(ModPatches), nameof(Bush_shake_CreateObjectDebris)))
             .InstructionEnumeration();
 
+    [SuppressMessage("ReSharper", "SuggestBaseTypeForParameter", Justification = "Harmony")]
     private static Item CreateBushItem(
         string itemId,
         int amount,
@@ -406,7 +380,7 @@ internal static class ModPatches
         return ItemRegistry.Create(itemId, amount, quality, allowNull);
     }
 
-    [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony.")]
+    [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony")]
     private static void GameLocation_CheckItemPlantRules_postfix(
         GameLocation __instance,
         ref bool __result,
@@ -416,7 +390,7 @@ internal static class ModPatches
         ref string deniedMessage)
     {
         var metadata = ItemRegistry.GetMetadata(itemId);
-        if (metadata is null || !Data.TryGetValue(metadata.QualifiedItemId, out var bushModel))
+        if (metadata is null || !ModState.Data.TryGetValue(metadata.QualifiedItemId, out var bushModel))
         {
             return;
         }
@@ -426,12 +400,10 @@ internal static class ModPatches
         deniedMessage = (string)parameters[3];
     }
 
-    private static Texture2D GetTexture(string path) => getTexture!(path);
-
-    [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony.")]
+    [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony")]
     private static void HoeDirt_canPlantThisSeedHere_postfix(string itemId, ref bool __result)
     {
-        if (!__result || !Data.ContainsKey($"(O){itemId}"))
+        if (!__result || !ModState.Data.ContainsKey($"(O){itemId}"))
         {
             return;
         }
@@ -439,14 +411,14 @@ internal static class ModPatches
         __result = false;
     }
 
-    [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony.")]
+    [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony")]
     private static void IndoorPot_performObjectDropInAction_postfix(
         IndoorPot __instance,
         Item dropInItem,
         bool probe,
         ref bool __result)
     {
-        if (!Data.ContainsKey(dropInItem.QualifiedItemId) ||
+        if (!ModState.Data.ContainsKey(dropInItem.QualifiedItemId) ||
             __instance.QualifiedItemId != "(BC)62" ||
             __instance.hoeDirt.Value.crop != null)
         {
@@ -458,8 +430,7 @@ internal static class ModPatches
         {
             __instance.bush.Value = new Bush(__instance.TileLocation, 3, __instance.Location)
             {
-                modData = { [Constants.ModDataId] = dropInItem.QualifiedItemId },
-                inPot = { Value = true }
+                modData = { [Constants.ModDataId] = dropInItem.QualifiedItemId }, inPot = { Value = true }
             };
 
             if (!__instance.Location.IsOutdoors)
@@ -472,17 +443,8 @@ internal static class ModPatches
         __result = empty;
     }
 
-    private static Item JunimoHarvester_update_CreateItem(Item i, Bush bush)
-    {
-        // Return cached item
-        if (bush.TryGetCachedData(out var itemId, out var itemQuality, out var itemStack, out _))
-        {
-            return ItemRegistry.Create(itemId, itemStack, itemQuality);
-        }
-
-        // Try to return random item else return vanilla item
-        return bush.TryProduceAny(out var item, out _) ? item : i;
-    }
+    private static Item JunimoHarvester_update_CreateItem(Item i, Bush bush) =>
+        ModState.Api.TryGetShakeOffItem(bush, out var item, out _) ? item : i;
 
     private static IEnumerable<CodeInstruction>
         JunimoHarvester_update_transpiler(IEnumerable<CodeInstruction> instructions) =>
@@ -498,7 +460,8 @@ internal static class ModPatches
                 CodeInstruction.Call(typeof(ModPatches), nameof(JunimoHarvester_update_CreateItem)))
             .InstructionEnumeration();
 
-    [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony.")]
+    [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony")]
+    [SuppressMessage("ReSharper", "SuggestBaseTypeForParameter", Justification = "Harmony")]
     private static void Object_IsTeaSapling_postfix(SObject __instance, ref bool __result)
     {
         if (__result)
@@ -506,15 +469,16 @@ internal static class ModPatches
             return;
         }
 
-        if (Data.ContainsKey(__instance.QualifiedItemId))
+        if (ModState.Data.ContainsKey(__instance.QualifiedItemId))
         {
             __result = true;
         }
     }
 
+    [SuppressMessage("ReSharper", "SuggestBaseTypeForParameter", Justification = "Harmony")]
     private static Bush Object_placementAction_AddModData(Bush bush, SObject obj)
     {
-        if (!Data.ContainsKey(obj.QualifiedItemId))
+        if (!ModState.Data.ContainsKey(obj.QualifiedItemId))
         {
             return bush;
         }

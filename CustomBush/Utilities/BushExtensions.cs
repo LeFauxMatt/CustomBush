@@ -1,6 +1,6 @@
 using LeFauxMods.Common.Integrations.CustomBush;
 using LeFauxMods.Common.Utilities;
-using LeFauxMods.CustomBush.Models;
+using LeFauxMods.CustomBush.Services;
 using StardewValley.Extensions;
 using StardewValley.Internal;
 using StardewValley.TerrainFeatures;
@@ -9,10 +9,6 @@ namespace LeFauxMods.CustomBush.Utilities;
 
 internal static class BushExtensions
 {
-    private static Func<Dictionary<string, CustomBushData>>? getData;
-
-    private static Dictionary<string, CustomBushData> Data => getData!();
-
     public static void ClearCachedData(this Bush bush)
     {
         _ = bush.modData.Remove(Constants.ModDataCondition);
@@ -21,124 +17,81 @@ internal static class BushExtensions
         _ = bush.modData.Remove(Constants.ModDataQuality);
         _ = bush.modData.Remove(Constants.ModDataStack);
         _ = bush.modData.Remove(Constants.ModDataSpriteOffset);
+        bush.tileSheetOffset.Value = 0;
+        bush.setUpSourceRect();
     }
 
-    public static void Init(Func<Dictionary<string, CustomBushData>> getter) => getData ??= getter;
-
-    public static bool TryGetCachedData(this Bush bush, [NotNullWhen(true)] out string? itemId, out int itemQuality,
-        out int itemStack, out string? condition)
+    public static bool TryProduceItem(
+        this Bush bush,
+        [NotNullWhen(true)] out Item? item,
+        [NotNullWhen(true)] out ICustomBushDrop? drop)
     {
-        itemQuality = 1;
-        itemStack = 1;
+        const string logFormat = "{0} did not select {1}. Failed: {2}";
+        item = null;
+        drop = null;
 
-        if (!bush.modData.TryGetValue(Constants.ModDataItem, out itemId) || string.IsNullOrWhiteSpace(itemId))
+        if (!bush.modData.TryGetValue(Constants.ModDataId, out var id) ||
+            !ModState.Data.TryGetValue(id, out var customBush))
         {
-            condition = null;
             return false;
-        }
-
-        if (!bush.modData.TryGetValue(Constants.ModDataCondition, out condition) &&
-            bush.modData.TryGetValue(Constants.ModDataItemSeason, out var itemSeason) &&
-            Enum.TryParse(itemSeason, out Season season))
-        {
-            condition = $"SEASON {season.ToString()}";
-        }
-
-        if (bush.modData.TryGetValue(Constants.ModDataQuality, out var qualityString) &&
-            int.TryParse(qualityString, out var qualityInt))
-        {
-            itemQuality = qualityInt;
-        }
-
-        if (bush.modData.TryGetValue(Constants.ModDataStack, out var stackString) &&
-            int.TryParse(stackString, out var stackInt))
-        {
-            itemStack = stackInt;
-        }
-
-        return true;
-    }
-
-    public static bool TryProduceAny(this Bush bush, [NotNullWhen(true)] out Item? item,
-        [NotNullWhen(true)] out CustomBushDrop? drop, CustomBushData? customBush = null)
-    {
-        if (customBush is null)
-        {
-            if (!bush.modData.TryGetValue(Constants.ModDataId, out var id) || !Data.TryGetValue(id, out customBush))
-            {
-                item = null;
-                drop = null;
-                return false;
-            }
         }
 
         foreach (var itemProduced in customBush.ItemsProduced)
         {
-            item = bush.TryProduceOne(itemProduced);
-            drop = itemProduced;
-            if (item is not null)
+            // Test overall chance
+            if (!Game1.random.NextBool(itemProduced.Chance))
             {
-                return true;
+                return false;
             }
+
+            // Test drop condition
+            if (itemProduced.Condition != null &&
+                !GameStateQuery.CheckConditions(
+                    itemProduced.Condition,
+                    bush.Location,
+                    null,
+                    null,
+                    null,
+                    null,
+                    bush.Location.SeedsIgnoreSeasonsHere() ? GameStateQuery.SeasonQueryKeys : null))
+            {
+                Log.Trace(logFormat, id, itemProduced.Id, itemProduced.Condition);
+                return false;
+            }
+
+            // Test season condition
+            if (itemProduced.Season.HasValue &&
+                bush.Location.SeedsIgnoreSeasonsHere() &&
+                itemProduced.Season != Game1.GetSeasonForLocation(bush.Location))
+            {
+                Log.Trace(logFormat, id, itemProduced.Id, itemProduced.Season.ToString());
+                return false;
+            }
+
+            // Try to produce the item
+            item = ItemQueryResolver.TryResolveRandomItem(
+                itemProduced,
+                new ItemQueryContext(bush.Location, null, null, $"custom bush '{id}' > drop '{itemProduced.Id}'"),
+                false,
+                null,
+                null,
+                null,
+                (query, error) => Log.Error(
+                    "{0} failed parsing item query {1} for item {2}: {3}",
+                    id,
+                    query,
+                    itemProduced.Id,
+                    error));
+
+            if (item is null)
+            {
+                continue;
+            }
+
+            drop = itemProduced;
+            return true;
         }
 
-        item = null;
-        drop = null;
         return false;
-    }
-
-    private static Item? TryProduceOne(this Bush bush, ICustomBushDrop drop)
-    {
-        const string logFormat = "{0} did not select {1}. Failed: {2}";
-
-        if (!bush.modData.TryGetValue(Constants.ModDataId, out var id))
-        {
-            return null;
-        }
-
-        // Test overall chance
-        if (!Game1.random.NextBool(drop.Chance))
-        {
-            return null;
-        }
-
-        // Test drop condition
-        if (drop.Condition != null &&
-            !GameStateQuery.CheckConditions(
-                drop.Condition,
-                bush.Location,
-                null,
-                null,
-                null,
-                null,
-                bush.Location.SeedsIgnoreSeasonsHere() ? GameStateQuery.SeasonQueryKeys : null))
-        {
-            Log.Trace(logFormat, id, drop.Id, drop.Condition);
-            return null;
-        }
-
-        // Test season condition
-        if (drop.Season.HasValue &&
-            bush.Location.SeedsIgnoreSeasonsHere() &&
-            drop.Season != Game1.GetSeasonForLocation(bush.Location))
-        {
-            Log.Trace(logFormat, id, drop.Id, drop.Season.ToString());
-            return null;
-        }
-
-        // Try to produce the item
-        return ItemQueryResolver.TryResolveRandomItem(
-            drop,
-            new ItemQueryContext(bush.Location, null, null, $"custom bush '{id}' > drop '{drop.Id}'"),
-            false,
-            null,
-            null,
-            null,
-            (query, error) => Log.Error(
-                "{0} failed parsing item query {1} for item {2}: {3}",
-                id,
-                query,
-                drop.Id,
-                error));
     }
 }
