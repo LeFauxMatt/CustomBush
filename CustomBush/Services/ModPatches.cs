@@ -269,35 +269,19 @@ internal static class ModPatches
         GameLocation? location,
         Bush bush)
     {
-        // Create cached item
-        if (ModState.Api.TryGetModData(bush, out var itemId, out itemQuality, out var itemStack, out _))
+        if (ModState.Api.TryGetShakeOffItem(bush, out var item))
         {
-            for (var i = 0; i < itemStack; i++)
+            for (var i = 0; i < item.Stack; i++)
             {
                 Game1.createObjectDebris(
-                    itemId,
+                    item.QualifiedItemId,
                     xTile,
                     yTile,
                     groundLevel,
-                    itemQuality,
+                    item.Quality,
                     velocityMultiplier,
                     location);
             }
-
-            return;
-        }
-
-        // Try to create random item
-        if (bush.TryProduceItem(out var item, out _))
-        {
-            Game1.createObjectDebris(
-                item.QualifiedItemId,
-                xTile,
-                yTile,
-                groundLevel,
-                item.Quality,
-                velocityMultiplier,
-                location);
 
             return;
         }

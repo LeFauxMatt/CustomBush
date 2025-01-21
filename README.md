@@ -18,10 +18,14 @@ In general any of the fields that applies to [Fruit
 Trees](https://stardewvalleywiki.com/Modding:Fruit_trees) can also apply to
 Custom Bushes since they share many of the same attributes.
 
+
+![Config Menu](docs/custom-bushes.png)
+
 ## Table of Contents
 
 - [Custom Bush](#custom-bush)
   - [Table of Contents](#table-of-contents)
+  - [Configurations](#configurations)
   - [Data Format](#data-format)
     - [Conditions To Produce](#conditions-to-produce)
     - [Items Produced](#items-produced)
@@ -29,6 +33,12 @@ Custom Bushes since they share many of the same attributes.
   - [Example](#example)
   - [Modify Tea Bushes](#modify-tea-bushes)
 
+## Configurations
+
+For ease of use, it is recommended to set config options
+from [Generic Mod Config Menu](https://www.nexusmods.com/stardewvalley/mods/5098).
+
+![Config Menu](docs/config-menu.png)
 
 ## Data Format
 

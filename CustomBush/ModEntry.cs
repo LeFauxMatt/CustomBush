@@ -13,13 +13,12 @@ internal sealed class ModEntry : Mod
     {
         // Init
         I18n.Init(helper.Translation);
-        ModState.Init(helper);
+        ModState.Init(helper, this.ModManifest);
         Log.Init(this.Monitor, ModState.Config);
         ModPatches.Init(helper);
 
         // Events
         helper.Events.Content.AssetRequested += OnAssetRequested;
-        helper.Events.GameLoop.GameLaunched += this.OnGameLaunched;
     }
 
     /// <inheritdoc />
@@ -47,7 +46,4 @@ internal sealed class ModEntry : Mod
             },
             (AssetEditPriority)int.MaxValue);
     }
-
-    private void OnGameLaunched(object? sender, GameLaunchedEventArgs e) =>
-        _ = new ConfigMenu(this.Helper, this.ModManifest);
 }

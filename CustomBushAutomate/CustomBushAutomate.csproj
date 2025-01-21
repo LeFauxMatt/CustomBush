@@ -6,11 +6,11 @@
 	<PropertyGroup>
 		<Name>Custom Bush Automate</Name>
 		<Description>Provides integration between Custom Bush and Automate.</Description>
-		<Version>1.0.0-beta.1</Version>
+		<Version>1.0.0</Version>
 		<EnableHarmony>true</EnableHarmony>
 		<RootNamespace>LeFauxMods.CustomBushAutomate</RootNamespace>
 		<UniqueId>furyx639.CustomBushAutomate</UniqueId>
-		<UpdateKeys>Nexus:20619@Automate, CurseForge:998265, ModDrop:1547214</UpdateKeys>
+		<UpdateKeys>Nexus:31027</UpdateKeys>
 		<RepositoryUrl>https://github.com/LeFauxMatt/CustomBush</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 	</PropertyGroup>
@@ -23,7 +23,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<SMAPIDependency Include="furyx639.CustomBush" Version="1.5.0-beta.1" required="true" />
+		<SMAPIDependency Include="furyx639.CustomBush" Version="1.5.0" required="true" />
 		<SMAPIDependency Include="Pathoschild.Automate" Version="2.3.2" required="true" />
 	</ItemGroup>
 
