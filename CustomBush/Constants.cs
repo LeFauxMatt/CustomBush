@@ -20,7 +20,5 @@ internal static class Constants
 
     public const string ModDataStack = ModId + "/Stack";
 
-    public const string ModDataTexture = ModId + "/Texture";
-
     public const string ModId = "furyx639.CustomBush";
 }

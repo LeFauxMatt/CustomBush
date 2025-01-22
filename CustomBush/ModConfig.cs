@@ -1,15 +1,22 @@
+using System.Globalization;
+using System.Text;
 using LeFauxMods.Common.Interface;
 using LeFauxMods.Common.Models;
 
 namespace LeFauxMods.CustomBush;
 
-/// <inheritdoc />
-internal sealed class ModConfig : IConfigWithLogAmount
+/// <inheritdoc cref="IModConfig{TConfig}" />
+internal sealed class ModConfig : IModConfig<ModConfig>, IConfigWithLogAmount
 {
     /// <inheritdoc />
     public LogAmount LogAmount { get; set; } = LogAmount.Less;
 
-    /// <summary>Copy config option values to another instance.</summary>
-    /// <param name="other">The instance to copy values to.</param>
+    /// <inheritdoc />
     public void CopyTo(ModConfig other) => other.LogAmount = this.LogAmount;
+
+    /// <inheritdoc />
+    public string GetSummary() =>
+        new StringBuilder()
+            .AppendLine(CultureInfo.InvariantCulture, $"{nameof(this.LogAmount),25}: {this.LogAmount}")
+            .ToString();
 }
