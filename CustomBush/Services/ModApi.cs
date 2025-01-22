@@ -14,27 +14,12 @@ public sealed class ModApi(IModHelper helper) : ICustomBushApi
         helper.GameContent.Load<Dictionary<string, CustomBushData>>(Constants.DataPath).Values;
 
     /// <inheritdoc />
-    public IEnumerable<(string Id, ICustomBushDataOld Data)> GetData() =>
-        this.GetAllBushes().Select(static data => (data.Id, (ICustomBushDataOld)data));
+    public bool IsCustomBush(Bush bush) => this.TryGetBush(bush, out _, out _);
 
     /// <inheritdoc />
-    public bool IsCustomBush(Bush bush) => this.TryGetCustomBush(bush, out _, out _);
-
-    /// <inheritdoc />
-    public bool IsInSeason(Bush bush)
-    {
-        if (!this.TryGetCustomBush(bush, out var data) || data is not CustomBushData customBush)
-        {
-            return false;
-        }
-
-        return customBush.ConditionsToProduce.Any(condition =>
-            GameStateQuery.CheckConditions(condition,
-                bush.Location, null, null, null, null,
-                bush.Location.SeedsIgnoreSeasonsHere() || bush.IsSheltered()
-                    ? GameStateQuery.SeasonQueryKeys
-                    : null));
-    }
+    public bool IsInSeason(Bush bush) =>
+        this.TryGetBush(bush, out var customBush, out _) &&
+        customBush.ConditionsToProduce.Any(bush.TestCondition);
 
     /// <inheritdoc />
     public bool TryGetBush(Bush bush, [NotNullWhen(true)] out ICustomBushData? customBush,
@@ -53,40 +38,6 @@ public sealed class ModApi(IModHelper helper) : ICustomBushApi
         }
 
         customBush = bushData;
-        return true;
-    }
-
-    /// <inheritdoc />
-    public bool TryGetCustomBush(Bush bush, [NotNullWhen(true)] out ICustomBushDataOld? customBush) =>
-        this.TryGetCustomBush(bush, out customBush, out _);
-
-    /// <inheritdoc />
-    public bool TryGetCustomBush(
-        Bush bush,
-        [NotNullWhen(true)] out ICustomBushDataOld? customBush,
-        [NotNullWhen(true)] out string? id)
-    {
-        if (this.TryGetBush(bush, out var customBushNew, out id))
-        {
-            customBush = customBushNew;
-            return true;
-        }
-
-        customBush = null;
-        return false;
-    }
-
-    /// <inheritdoc />
-    public bool TryGetDrops(string id, [NotNullWhen(true)] out IList<ICustomBushDrop>? drops)
-    {
-        drops = null;
-        var data = helper.GameContent.Load<Dictionary<string, CustomBushData>>(Constants.DataPath);
-        if (!data.TryGetValue(id, out var bush))
-        {
-            return false;
-        }
-
-        drops = bush.ItemsProduced.ConvertAll(static ICustomBushDrop (drop) => drop);
         return true;
     }
 

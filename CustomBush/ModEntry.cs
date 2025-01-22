@@ -1,4 +1,5 @@
 using System.Globalization;
+using LeFauxMods.Common.Integrations.CustomBush;
 using LeFauxMods.Common.Utilities;
 using LeFauxMods.CustomBush.Models;
 using LeFauxMods.CustomBush.Services;
@@ -91,7 +92,7 @@ internal sealed class ModEntry : Mod
 
                 // Try to produce item
                 Log.Trace("{0} attempting to produce random item.", id);
-                CustomBushDrop? drop = null;
+                ICustomBushDrop? drop = null;
                 Item? item = null;
                 foreach (var itemProduced in data.ItemsProduced)
                 {

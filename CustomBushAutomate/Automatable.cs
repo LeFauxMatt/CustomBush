@@ -8,8 +8,8 @@ namespace LeFauxMods.CustomBushAutomate;
 /// <inheritdoc />
 internal sealed class Automatable : IMachine
 {
-    private readonly CustomBushIntegration customBush;
     private readonly Bush bush;
+    private readonly CustomBushIntegration customBush;
 
     public Automatable(CustomBushIntegration customBush, Bush bush)
     {

@@ -14,9 +14,9 @@ internal sealed class ModState
     private static ModState? Instance;
 
     private readonly ICustomBushApi api;
+    private readonly ConfigHelper<ModConfig> configHelper;
     private readonly IModHelper helper;
     private readonly IManifest manifest;
-    private readonly ConfigHelper<ModConfig> configHelper;
     private readonly Dictionary<string, Texture2D> textures = new(StringComparer.OrdinalIgnoreCase);
     private ConfigMenu? configMenu;
     private Dictionary<string, CustomBushData>? data;
