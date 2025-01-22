@@ -1,5 +1,4 @@
 using LeFauxMods.Common.Integrations.CustomBush;
-using LeFauxMods.Common.Utilities;
 using LeFauxMods.CustomBush.Models;
 using LeFauxMods.CustomBush.Utilities;
 using Microsoft.Xna.Framework.Graphics;
@@ -94,15 +93,15 @@ public sealed class ModApi(IModHelper helper) : ICustomBushApi
     /// <inheritdoc />
     public bool TryGetShakeOffItem(Bush bush, [NotNullWhen(true)] out Item? item)
     {
-        if (!this.TryGetModData(bush, out var itemId, out var itemQuality, out var itemStack, out _))
+        // Create cached item
+        if (bush.TryGetCachedData(true, out var itemId, out var itemQuality, out var itemStack, out _))
         {
-            // Try to create random item
-            return bush.TryProduceItem(out item, out _);
+            item = ItemRegistry.Create(itemId, itemStack, itemQuality);
+            return true;
         }
 
-        // Create cached item
-        item = ItemRegistry.Create(itemId, itemStack, itemQuality);
-        return true;
+        item = null;
+        return false;
     }
 
     /// <inheritdoc />
@@ -111,55 +110,8 @@ public sealed class ModApi(IModHelper helper) : ICustomBushApi
         [NotNullWhen(true)] out string? itemId,
         out int itemQuality,
         out int itemStack,
-        out string? condition)
-    {
-        itemQuality = 1;
-        itemStack = 1;
-
-        if (!bush.readyForHarvest() || !bush.modData.TryGetValue(Constants.ModDataItem, out itemId) ||
-            string.IsNullOrWhiteSpace(itemId))
-        {
-            bush.modData.Remove(Constants.ModDataCondition);
-            bush.modData.Remove(Constants.ModDataItem);
-            bush.modData.Remove(Constants.ModDataItemSeason);
-            bush.modData.Remove(Constants.ModDataQuality);
-            bush.modData.Remove(Constants.ModDataSpriteOffset);
-            bush.modData.Remove(Constants.ModDataStack);
-            itemId = null;
-            condition = null;
-            return false;
-        }
-
-        if (!bush.modData.TryGetValue(Constants.ModDataCondition, out condition) &&
-            bush.modData.TryGetValue(Constants.ModDataItemSeason, out var itemSeason) &&
-            Enum.TryParse(itemSeason, out Season season))
-        {
-            condition = $"SEASON {season.ToString()}";
-        }
-
-        if (!string.IsNullOrWhiteSpace(condition) && !bush.TestCondition(condition))
-        {
-            Log.Trace("Cached item's condition does not pass: {0}\nClearing cache.", condition);
-            bush.tileSheetOffset.Value = 0;
-            bush.setUpSourceRect();
-            condition = null;
-            return false;
-        }
-
-        if (bush.modData.TryGetValue(Constants.ModDataQuality, out var qualityString) &&
-            int.TryParse(qualityString, out var qualityInt))
-        {
-            itemQuality = qualityInt;
-        }
-
-        if (bush.modData.TryGetValue(Constants.ModDataStack, out var stackString) &&
-            int.TryParse(stackString, out var stackInt))
-        {
-            itemStack = stackInt;
-        }
-
-        return true;
-    }
+        out string? condition) =>
+        bush.TryGetCachedData(bush.readyForHarvest(), out itemId, out itemQuality, out itemStack, out condition);
 
     public bool TryGetTexture(Bush bush, [NotNullWhen(true)] out Texture2D? texture)
     {

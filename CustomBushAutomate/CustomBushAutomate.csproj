@@ -10,7 +10,7 @@
 		<EnableHarmony>true</EnableHarmony>
 		<RootNamespace>LeFauxMods.CustomBushAutomate</RootNamespace>
 		<UniqueId>furyx639.CustomBushAutomate</UniqueId>
-		<UpdateKeys>Nexus:31027</UpdateKeys>
+		<UpdateKeys>Nexus:31027, CurseForge:1184931</UpdateKeys>
 		<RepositoryUrl>https://github.com/LeFauxMatt/CustomBush</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 	</PropertyGroup>

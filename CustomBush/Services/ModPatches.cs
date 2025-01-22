@@ -1,9 +1,7 @@
-using System.Globalization;
 using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
 using LeFauxMods.Common.Utilities;
-using LeFauxMods.CustomBush.Models;
 using LeFauxMods.CustomBush.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -119,13 +117,7 @@ internal static class ModPatches
                 1E-06f);
         }
 
-        var xOffset = 0;
-        if (__instance.modData.TryGetValue(Constants.ModDataSpriteOffset, out var spriteOffsetString) &&
-            int.TryParse(spriteOffsetString, out var spriteOffset))
-        {
-            xOffset = spriteOffset * 16;
-        }
-
+        var xOffset = __instance.modData.GetInt(Constants.ModDataSpriteOffset) * 16;
         spriteBatch.Draw(
             texture,
             Game1.GlobalToLocal(Game1.viewport, new Vector2(x, y)),
@@ -142,91 +134,29 @@ internal static class ModPatches
 
     [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony")]
     [SuppressMessage("ReSharper", "SuggestBaseTypeForParameter", Justification = "Harmony")]
-    private static void Bush_GetShakeOffItem_postfix(Bush __instance, ref string __result)
+    private static void Bush_GetShakeOffItem_postfix(Bush __instance, ref string? __result)
     {
+        if (!ModState.Api.IsCustomBush(__instance))
+        {
+            return;
+        }
+
         if (__instance.modData.TryGetValue(Constants.ModDataItem, out var itemId) && !string.IsNullOrWhiteSpace(itemId))
         {
             __result = itemId;
+            return;
         }
+
+        __result = null;
     }
 
     [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony")]
     [SuppressMessage("ReSharper", "SeparateLocalFunctionsWithJumpStatement", Justification = "Harmony")]
     private static void Bush_inBloom_postfix(Bush __instance, ref bool __result)
     {
-        // Check cached values
-        if (ModState.Api.TryGetModData(__instance, out _, out _, out _, out _))
+        if (ModState.Api.IsCustomBush(__instance))
         {
-            __result = true;
-            return;
-        }
-
-        // Check if bush has custom bush data
-        if (!ModState.Api.TryGetBush(__instance, out var customBush, out var id))
-        {
-            return;
-        }
-
-        var age = __instance.getAge();
-
-        // Skip all checks if they were already performed at this age
-        if (__instance.modData.GetInt(Constants.ModDataAge) == age)
-        {
-            __result = false;
-            return;
-        }
-
-        __instance.modData[Constants.ModDataAge] = age.ToString(CultureInfo.InvariantCulture);
-
-        // Check if bush meets the age requirement
-        if (age < customBush.AgeToProduce)
-        {
-            Log.Trace(
-                "{0} will not produce. Age: {1} < {2}",
-                id,
-                age.ToString(CultureInfo.InvariantCulture),
-                customBush.AgeToProduce.ToString(CultureInfo.InvariantCulture));
-
-            __result = false;
-            return;
-        }
-
-        // Check if bush meets any condition requirement
-        var condition = customBush.ConditionsToProduce.FirstOrDefault(__instance.TestCondition);
-        if (string.IsNullOrWhiteSpace(condition))
-        {
-            Log.Trace("{0} will not produce. None of the required conditions was met.", id);
-            __result = false;
-            return;
-        }
-
-        // Try to produce item
-        Log.Trace("{0} attempting to produce random item.", id);
-        if (!__instance.TryProduceItem(out var item, out var drop))
-        {
-            Log.Trace("{0} will not produce. No item was produced.", id);
-            __result = false;
-            return;
-        }
-
-        Log.Trace(
-            "{0} selected {1} to grow with quality {2} and quantity {3}.",
-            id,
-            item.QualifiedItemId,
-            item.Quality,
-            item.Stack);
-
-        __result = true;
-        __instance.modData[Constants.ModDataCondition] = condition;
-        __instance.modData[Constants.ModDataItem] = item.QualifiedItemId;
-        __instance.modData[Constants.ModDataQuality] = item.Quality.ToString(CultureInfo.InvariantCulture);
-        __instance.modData[Constants.ModDataStack] = item.Stack.ToString(CultureInfo.InvariantCulture);
-        __instance.tileSheetOffset.Value = 1;
-
-        if (drop is CustomBushDrop customBushDrop)
-        {
-            __instance.modData[Constants.ModDataSpriteOffset] =
-                customBushDrop.SpriteOffset.ToString(CultureInfo.InvariantCulture);
+            __result = ModState.Api.TryGetModData(__instance, out _, out _, out _, out _);
         }
     }
 
@@ -291,6 +221,7 @@ internal static class ModPatches
                     location);
             }
 
+            bush.ClearCachedData();
             return;
         }
 

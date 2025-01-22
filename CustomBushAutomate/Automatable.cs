@@ -42,7 +42,7 @@ internal sealed class Automatable : IMachine
             return MachineState.Disabled;
         }
 
-        return this.bush.tileSheetOffset.Value == 1
+        return this.bush.readyForHarvest()
             ? MachineState.Done
             : MachineState.Processing;
     }
