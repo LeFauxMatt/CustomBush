@@ -6,7 +6,7 @@
 	<PropertyGroup>
 		<Name>Custom Bush Automate</Name>
 		<Description>Provides integration between Custom Bush and Automate.</Description>
-		<Version>1.0.0</Version>
+		<Version>1.0.1</Version>
 		<EnableHarmony>true</EnableHarmony>
 		<RootNamespace>LeFauxMods.CustomBushAutomate</RootNamespace>
 		<UniqueId>furyx639.CustomBushAutomate</UniqueId>

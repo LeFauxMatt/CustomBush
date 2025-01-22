@@ -35,7 +35,7 @@ internal static class BushExtensions
             // Test overall chance
             if (!Game1.random.NextBool(itemProduced.Chance))
             {
-                return false;
+                continue;
             }
 
             // Test drop condition
@@ -50,7 +50,7 @@ internal static class BushExtensions
                     bush.Location.SeedsIgnoreSeasonsHere() ? GameStateQuery.SeasonQueryKeys : null))
             {
                 Log.Trace(logFormat, id, itemProduced.Id, itemProduced.Condition);
-                return false;
+                continue;
             }
 
             // Test season condition
@@ -59,7 +59,7 @@ internal static class BushExtensions
                 itemProduced.Season != Game1.GetSeasonForLocation(bush.Location))
             {
                 Log.Trace(logFormat, id, itemProduced.Id, itemProduced.Season.ToString());
-                return false;
+                continue;
             }
 
             // Try to produce the item

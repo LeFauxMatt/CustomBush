@@ -119,6 +119,12 @@ public sealed class ModApi(IModHelper helper) : ICustomBushApi
         if (!bush.readyForHarvest() || !bush.modData.TryGetValue(Constants.ModDataItem, out itemId) ||
             string.IsNullOrWhiteSpace(itemId))
         {
+            bush.modData.Remove(Constants.ModDataCondition);
+            bush.modData.Remove(Constants.ModDataItem);
+            bush.modData.Remove(Constants.ModDataItemSeason);
+            bush.modData.Remove(Constants.ModDataQuality);
+            bush.modData.Remove(Constants.ModDataSpriteOffset);
+            bush.modData.Remove(Constants.ModDataStack);
             itemId = null;
             condition = null;
             return false;

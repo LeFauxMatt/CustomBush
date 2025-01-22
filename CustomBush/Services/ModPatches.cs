@@ -30,6 +30,9 @@ internal static class ModPatches
         Helper = modHelper;
         var harmony = new Harmony(Constants.ModId);
 
+        // transpile stloc
+        // bool inBloom = this.getAge() >= 20 && dayOfMonth >= 22 && (season != Season.Winter || this.IsSheltered());
+
         _ = harmony.Patch(
             AccessTools.DeclaredMethod(typeof(Bush), nameof(Bush.draw), [typeof(SpriteBatch)]),
             new HarmonyMethod(typeof(ModPatches), nameof(Bush_draw_prefix)));
@@ -45,6 +48,10 @@ internal static class ModPatches
         _ = harmony.Patch(
             AccessTools.DeclaredMethod(typeof(Bush), nameof(Bush.performToolAction)),
             transpiler: new HarmonyMethod(typeof(ModPatches), nameof(Bush_performToolAction_transpiler)));
+        //
+        // _ = harmony.Patch(
+        //     AccessTools.DeclaredMethod(typeof(Bush), nameof(Bush.seasonUpdate)),
+        //     postfix: new HarmonyMethod(typeof(ModPatches), nameof(Bush_seasonUpdate_postfix)));
 
         _ = harmony.Patch(
             AccessTools.DeclaredMethod(typeof(Bush), nameof(Bush.setUpSourceRect)),
@@ -214,6 +221,7 @@ internal static class ModPatches
         __instance.modData[Constants.ModDataItem] = item.QualifiedItemId;
         __instance.modData[Constants.ModDataQuality] = item.Quality.ToString(CultureInfo.InvariantCulture);
         __instance.modData[Constants.ModDataStack] = item.Stack.ToString(CultureInfo.InvariantCulture);
+        __instance.tileSheetOffset.Value = 1;
 
         if (drop is CustomBushDrop customBushDrop)
         {
