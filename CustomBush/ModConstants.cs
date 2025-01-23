@@ -1,6 +1,6 @@
 namespace LeFauxMods.CustomBush;
 
-internal static class Constants
+internal static class ModConstants
 {
     public const string DataPath = ModId + "/Data";
 

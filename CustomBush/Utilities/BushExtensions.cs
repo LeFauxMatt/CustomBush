@@ -13,13 +13,13 @@ internal static class BushExtensions
 
     public static void ClearCachedData(this IHaveModData item)
     {
-        item.modData.Remove(Constants.ModDataAge);
-        item.modData.Remove(Constants.ModDataCondition);
-        item.modData.Remove(Constants.ModDataItem);
-        item.modData.Remove(Constants.ModDataItemSeason);
-        item.modData.Remove(Constants.ModDataQuality);
-        item.modData.Remove(Constants.ModDataSpriteOffset);
-        item.modData.Remove(Constants.ModDataStack);
+        item.modData.Remove(ModConstants.ModDataAge);
+        item.modData.Remove(ModConstants.ModDataCondition);
+        item.modData.Remove(ModConstants.ModDataItem);
+        item.modData.Remove(ModConstants.ModDataItemSeason);
+        item.modData.Remove(ModConstants.ModDataQuality);
+        item.modData.Remove(ModConstants.ModDataSpriteOffset);
+        item.modData.Remove(ModConstants.ModDataStack);
     }
 
     public static bool TryGetCachedData(
@@ -33,7 +33,7 @@ internal static class BushExtensions
         itemQuality = 0;
         itemStack = 0;
 
-        if (!readyForHarvest || !bush.modData.TryGetValue(Constants.ModDataItem, out itemId) ||
+        if (!readyForHarvest || !bush.modData.TryGetValue(ModConstants.ModDataItem, out itemId) ||
             string.IsNullOrWhiteSpace(itemId))
         {
             itemId = null;
@@ -41,8 +41,8 @@ internal static class BushExtensions
             return false;
         }
 
-        if (!bush.modData.TryGetValue(Constants.ModDataCondition, out condition) &&
-            bush.modData.TryGetValue(Constants.ModDataItemSeason, out var itemSeason) &&
+        if (!bush.modData.TryGetValue(ModConstants.ModDataCondition, out condition) &&
+            bush.modData.TryGetValue(ModConstants.ModDataItemSeason, out var itemSeason) &&
             Enum.TryParse(itemSeason, out Season season))
         {
             condition = $"SEASON {season.ToString()}";
@@ -56,8 +56,8 @@ internal static class BushExtensions
             return false;
         }
 
-        itemQuality = bush.modData.GetInt(Constants.ModDataQuality);
-        itemStack = bush.modData.GetInt(Constants.ModDataStack, 1);
+        itemQuality = bush.modData.GetInt(ModConstants.ModDataQuality);
+        itemStack = bush.modData.GetInt(ModConstants.ModDataStack, 1);
         return true;
     }
 }

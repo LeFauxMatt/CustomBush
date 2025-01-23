@@ -6,7 +6,7 @@
   <PropertyGroup>
     <Name>Custom Bush</Name>
     <Description>Framework which allows custom bushes to be added to the game which work like the tea sapling.</Description>
-    <Version>1.5.2</Version>
+    <Version>2.0.0-beta.1</Version>
     <EnableHarmony>true</EnableHarmony>
     <RootNamespace>LeFauxMods.CustomBush</RootNamespace>
     <UniqueId>furyx639.CustomBush</UniqueId>

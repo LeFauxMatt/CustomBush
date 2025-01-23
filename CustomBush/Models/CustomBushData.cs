@@ -9,6 +9,9 @@ internal sealed class CustomBushData : ICustomBushData
 {
     private List<string>? conditionsToProduce;
 
+    public CustomBushData(List<CustomBushDrop> itemsProduced) =>
+        this.ItemsProduced = new CustomBushDrops(itemsProduced.ConvertAll(static ICustomBushDrop (drop) => drop));
+
     /// <inheritdoc />
     public int AgeToProduce { get; set; } = 20;
 
@@ -61,8 +64,8 @@ internal sealed class CustomBushData : ICustomBushData
     /// <inheritdoc />
     public string IndoorTexture { get; set; } = "TileSheets/bushes";
 
-    /// <inheritdoc />
-    public List<ICustomBushDrop> ItemsProduced { get; set; } = [];
+    /// <summary>Gets or sets the items produced by this custom bush.</summary>
+    public ICustomBushDrops ItemsProduced { get; set; }
 
     /// <inheritdoc />
     public List<PlantableRule> PlantableLocationRules { get; set; } = [];

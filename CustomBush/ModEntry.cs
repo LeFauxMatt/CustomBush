@@ -30,7 +30,7 @@ internal sealed class ModEntry : Mod
     }
 
     /// <inheritdoc />
-    public override object GetApi(IModInfo mod) => new ModApi(this.Helper);
+    public override object GetApi(IModInfo mod) => new ModApi();
 
     [EventPriority(EventPriority.High)]
     private static void OnDayStarted(object? sender, DayStartedEventArgs e)
@@ -52,7 +52,7 @@ internal sealed class ModEntry : Mod
             foreach (var bush in bushes)
             {
                 // Check if bush has custom bush data
-                if (!ModState.Api.TryGetBush(bush, out var customBush, out var id) ||
+                if (!ModState.Api.TryGetBush(bush, out var customBush) ||
                     customBush is not CustomBushData data)
                 {
                     continue;
@@ -75,7 +75,7 @@ internal sealed class ModEntry : Mod
                 {
                     Log.Trace(
                         "{0} will not produce. Age: {1} < {2}",
-                        id,
+                        customBush.Id,
                         age.ToString(CultureInfo.InvariantCulture),
                         customBush.AgeToProduce.ToString(CultureInfo.InvariantCulture));
 
@@ -86,12 +86,12 @@ internal sealed class ModEntry : Mod
                 var condition = customBush.ConditionsToProduce.FirstOrDefault(bush.TestCondition);
                 if (string.IsNullOrWhiteSpace(condition))
                 {
-                    Log.Trace("{0} will not produce. None of the required conditions was met.", id);
+                    Log.Trace("{0} will not produce. None of the required conditions was met.", customBush.Id);
                     continue;
                 }
 
                 // Try to produce item
-                Log.Trace("{0} attempting to produce random item.", id);
+                Log.Trace("{0} attempting to produce random item.", customBush.Id);
                 ICustomBushDrop? drop = null;
                 Item? item = null;
                 foreach (var itemProduced in data.ItemsProduced)
@@ -113,7 +113,7 @@ internal sealed class ModEntry : Mod
                             null,
                             bush.Location.SeedsIgnoreSeasonsHere() ? GameStateQuery.SeasonQueryKeys : null))
                     {
-                        Log.Trace(logFormat, id, itemProduced.Id, itemProduced.Condition);
+                        Log.Trace(logFormat, customBush.Id, itemProduced.Id, itemProduced.Condition);
                         continue;
                     }
 
@@ -122,7 +122,7 @@ internal sealed class ModEntry : Mod
                         bush.Location.SeedsIgnoreSeasonsHere() &&
                         itemProduced.Season != Game1.GetSeasonForLocation(bush.Location))
                     {
-                        Log.Trace(logFormat, id, itemProduced.Id, itemProduced.Season.ToString());
+                        Log.Trace(logFormat, customBush.Id, itemProduced.Id, itemProduced.Season.ToString());
                         continue;
                     }
 
@@ -130,14 +130,14 @@ internal sealed class ModEntry : Mod
                     item = ItemQueryResolver.TryResolveRandomItem(
                         itemProduced,
                         new ItemQueryContext(bush.Location, null, null,
-                            $"custom bush '{id}' > drop '{itemProduced.Id}'"),
+                            $"custom bush '{customBush.Id}' > drop '{itemProduced.Id}'"),
                         false,
                         null,
                         null,
                         null,
                         (query, error) => Log.Error(
                             "{0} failed parsing item query {1} for item {2}: {3}",
-                            id,
+                            customBush.Id,
                             query,
                             itemProduced.Id,
                             error));
@@ -153,22 +153,23 @@ internal sealed class ModEntry : Mod
 
                 if (drop is null || item is null)
                 {
-                    Log.Trace("{0} will not produce. No item was produced.", id);
+                    Log.Trace("{0} will not produce. No item was produced.", customBush.Id);
                     continue;
                 }
 
                 Log.Trace(
                     "{0} selected {1} to grow with quality {2} and quantity {3}.",
-                    id,
+                    customBush.Id,
                     item.QualifiedItemId,
                     item.Quality,
                     item.Stack);
 
-                bush.modData[Constants.ModDataCondition] = condition;
-                bush.modData[Constants.ModDataItem] = item.QualifiedItemId;
-                bush.modData[Constants.ModDataQuality] = item.Quality.ToString(CultureInfo.InvariantCulture);
-                bush.modData[Constants.ModDataStack] = item.Stack.ToString(CultureInfo.InvariantCulture);
-                bush.modData[Constants.ModDataSpriteOffset] = drop.SpriteOffset.ToString(CultureInfo.InvariantCulture);
+                bush.modData[ModConstants.ModDataCondition] = condition;
+                bush.modData[ModConstants.ModDataItem] = item.QualifiedItemId;
+                bush.modData[ModConstants.ModDataQuality] = item.Quality.ToString(CultureInfo.InvariantCulture);
+                bush.modData[ModConstants.ModDataStack] = item.Stack.ToString(CultureInfo.InvariantCulture);
+                bush.modData[ModConstants.ModDataSpriteOffset] =
+                    drop.SpriteOffset.ToString(CultureInfo.InvariantCulture);
                 bush.tileSheetOffset.Value = 1;
                 bush.setUpSourceRect();
             }
@@ -179,7 +180,7 @@ internal sealed class ModEntry : Mod
 
     private static void OnAssetRequested(object? sender, AssetRequestedEventArgs e)
     {
-        if (!e.NameWithoutLocale.IsEquivalentTo(Constants.DataPath))
+        if (!e.NameWithoutLocale.IsEquivalentTo(ModConstants.DataPath))
         {
             return;
         }

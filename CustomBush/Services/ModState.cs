@@ -13,7 +13,6 @@ internal sealed class ModState
 {
     private static ModState? Instance;
 
-    private readonly ICustomBushApi api;
     private readonly ConfigHelper<ModConfig> configHelper;
     private readonly IModHelper helper;
     private readonly IManifest manifest;
@@ -27,7 +26,6 @@ internal sealed class ModState
         this.helper = helper;
         this.manifest = manifest;
         this.configHelper = new ConfigHelper<ModConfig>(helper);
-        this.api = new ModApi(helper);
         _ = new ContentPatcherIntegration(helper);
 
         // Events
@@ -37,7 +35,7 @@ internal sealed class ModState
         ModEvents.Subscribe<ConditionsApiReadyEventArgs>(this.OnConditionsApiReady);
     }
 
-    public static ICustomBushApi Api => Instance!.api;
+    public static ICustomBushApi Api { get; } = new ModApi();
 
     public static ModConfig Config => Instance!.configHelper.Config;
 
@@ -47,21 +45,12 @@ internal sealed class ModState
 
     public static void Init(IModHelper helper, IManifest manifest) => Instance ??= new ModState(helper, manifest);
 
-    public static Texture2D GetTexture(string path)
-    {
-        if (Instance!.textures.TryGetValue(path, out var texture))
-        {
-            return texture;
-        }
-
-        texture = Instance.helper.GameContent.Load<Texture2D>(path);
-        Instance.textures[path] = texture;
-        return texture;
-    }
+    public static Texture2D GetTexture(string path) =>
+        Instance!.textures.GetOrAdd(path, () => Instance.helper.GameContent.Load<Texture2D>(path));
 
     private Dictionary<string, CustomBushData> GetData()
     {
-        this.data ??= this.helper.GameContent.Load<Dictionary<string, CustomBushData>>(Constants.DataPath);
+        this.data ??= this.helper.GameContent.Load<Dictionary<string, CustomBushData>>(ModConstants.DataPath);
         this.configMenu?.SetupMenu();
         return this.data;
     }
@@ -70,7 +59,7 @@ internal sealed class ModState
     {
         foreach (var assetName in e.NamesWithoutLocale)
         {
-            if (assetName.IsEquivalentTo(Constants.DataPath))
+            if (assetName.IsEquivalentTo(ModConstants.DataPath))
             {
                 this.data = null;
                 continue;

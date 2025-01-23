@@ -1,5 +1,4 @@
 using LeFauxMods.Common.Integrations.CustomBush;
-using LeFauxMods.CustomBush.Models;
 using LeFauxMods.CustomBush.Utilities;
 using Microsoft.Xna.Framework.Graphics;
 using StardewValley.TerrainFeatures;
@@ -7,32 +6,25 @@ using StardewValley.TerrainFeatures;
 namespace LeFauxMods.CustomBush.Services;
 
 /// <inheritdoc />
-public sealed class ModApi(IModHelper helper) : ICustomBushApi
+public sealed class ModApi : ICustomBushApi
 {
     /// <inheritdoc />
-    public IEnumerable<ICustomBushData> GetAllBushes() =>
-        helper.GameContent.Load<Dictionary<string, CustomBushData>>(Constants.DataPath).Values;
-
-    /// <inheritdoc />
-    public bool IsCustomBush(Bush bush) => this.TryGetBush(bush, out _, out _);
+    public bool IsCustomBush(Bush bush) => this.TryGetBush(bush, out _);
 
     /// <inheritdoc />
     public bool IsInSeason(Bush bush) =>
-        this.TryGetBush(bush, out var customBush, out _) &&
-        customBush.ConditionsToProduce.Any(bush.TestCondition);
+        this.TryGetBush(bush, out var customBush) && customBush.ConditionsToProduce.Any(bush.TestCondition);
 
     /// <inheritdoc />
-    public bool TryGetBush(Bush bush, [NotNullWhen(true)] out ICustomBushData? customBush,
-        [NotNullWhen(true)] out string? id)
+    public bool TryGetBush(Bush bush, [NotNullWhen(true)] out ICustomBushData? customBush)
     {
         customBush = null;
-        if (!bush.modData.TryGetValue(Constants.ModDataId, out id))
+        if (!bush.modData.TryGetValue(ModConstants.ModDataId, out var id))
         {
             return false;
         }
 
-        var data = helper.GameContent.Load<Dictionary<string, CustomBushData>>(Constants.DataPath);
-        if (!data.TryGetValue(id, out var bushData))
+        if (!ModState.Data.TryGetValue(id, out var bushData))
         {
             return false;
         }
@@ -66,7 +58,7 @@ public sealed class ModApi(IModHelper helper) : ICustomBushApi
 
     public bool TryGetTexture(Bush bush, [NotNullWhen(true)] out Texture2D? texture)
     {
-        if (!this.TryGetBush(bush, out var customBush, out _))
+        if (!this.TryGetBush(bush, out var customBush))
         {
             texture = null;
             return false;

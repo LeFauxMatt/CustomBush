@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
+using LeFauxMods.Common.Integrations.CustomBush;
 using LeFauxMods.Common.Utilities;
 using LeFauxMods.CustomBush.Utilities;
 using Microsoft.Xna.Framework;
@@ -9,6 +10,7 @@ using Netcode;
 using StardewValley.Characters;
 using StardewValley.Objects;
 using StardewValley.TerrainFeatures;
+using StardewValley.Tools;
 
 namespace LeFauxMods.CustomBush.Services;
 
@@ -26,7 +28,7 @@ internal static class ModPatches
     public static void Init(IModHelper modHelper)
     {
         Helper = modHelper;
-        var harmony = new Harmony(Constants.ModId);
+        var harmony = new Harmony(ModConstants.ModId);
 
         // transpile stloc
         // bool inBloom = this.getAge() >= 20 && dayOfMonth >= 22 && (season != Season.Winter || this.IsSheltered());
@@ -44,7 +46,12 @@ internal static class ModPatches
             postfix: new HarmonyMethod(typeof(ModPatches), nameof(Bush_inBloom_postfix)));
 
         _ = harmony.Patch(
+            AccessTools.DeclaredMethod(typeof(Bush), nameof(Bush.isDestroyable)),
+            postfix: new HarmonyMethod(typeof(ModPatches), nameof(Bush_isDestroyable_postfix)));
+
+        _ = harmony.Patch(
             AccessTools.DeclaredMethod(typeof(Bush), nameof(Bush.performToolAction)),
+            postfix: new HarmonyMethod(typeof(ModPatches), nameof(Bush_performToolAction_postfix)),
             transpiler: new HarmonyMethod(typeof(ModPatches), nameof(Bush_performToolAction_transpiler)));
         //
         // _ = harmony.Patch(
@@ -117,7 +124,7 @@ internal static class ModPatches
                 1E-06f);
         }
 
-        var xOffset = __instance.modData.GetInt(Constants.ModDataSpriteOffset) * 16;
+        var xOffset = __instance.modData.GetInt(ModConstants.ModDataSpriteOffset) * 16;
         spriteBatch.Draw(
             texture,
             Game1.GlobalToLocal(Game1.viewport, new Vector2(x, y)),
@@ -141,7 +148,8 @@ internal static class ModPatches
             return;
         }
 
-        if (__instance.modData.TryGetValue(Constants.ModDataItem, out var itemId) && !string.IsNullOrWhiteSpace(itemId))
+        if (__instance.modData.TryGetValue(ModConstants.ModDataItem, out var itemId) &&
+            !string.IsNullOrWhiteSpace(itemId))
         {
             __result = itemId;
             return;
@@ -151,12 +159,39 @@ internal static class ModPatches
     }
 
     [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony")]
-    [SuppressMessage("ReSharper", "SeparateLocalFunctionsWithJumpStatement", Justification = "Harmony")]
     private static void Bush_inBloom_postfix(Bush __instance, ref bool __result)
     {
         if (ModState.Api.IsCustomBush(__instance))
         {
             __result = ModState.Api.TryGetModData(__instance, out _, out _, out _, out _);
+        }
+    }
+
+    [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony")]
+    private static void Bush_isDestroyable_postfix(Bush __instance, ref bool __result)
+    {
+        if (ModState.Api.IsCustomBush(__instance))
+        {
+            __result = true;
+        }
+    }
+
+    private static void Bush_performToolAction_postfix(Bush __instance, Tool t, int explosion, Vector2 tileLocation)
+    {
+        if (!ModState.Api.TryGetBush(__instance, out var customBush) || customBush.BushType is BushType.Tea)
+        {
+            return;
+        }
+
+        if (t is MeleeWeapon { ItemId: "66" })
+        {
+            __instance.shake(tileLocation, true);
+        }
+
+        if (__instance.health <= -1)
+        {
+            Game1.createItemDebris(ItemRegistry.Create(customBush.Id), tileLocation * Game1.tileSize, 2,
+                __instance.Location);
         }
     }
 
@@ -177,8 +212,7 @@ internal static class ModPatches
     [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony")]
     private static void Bush_setUpSourceRect_postfix(Bush __instance, NetRectangle ___sourceRect)
     {
-        if (!ModState.Api.TryGetBush(__instance, out var customBush, out _) ||
-            string.IsNullOrWhiteSpace(customBush.Texture))
+        if (!ModState.Api.TryGetBush(__instance, out var customBush) || string.IsNullOrWhiteSpace(customBush.Texture))
         {
             return;
         }
@@ -189,74 +223,38 @@ internal static class ModPatches
             return;
         }
 
+        var width = customBush.BushType switch
+        {
+            BushType.Medium or BushType.Walnut => 32,
+            BushType.Large => 28,
+            _ => 16
+        };
+
+        var height = customBush.BushType switch
+        {
+            BushType.Medium or BushType.Large => 48,
+            _ => 32
+        };
+
         var age = __instance.getAge();
         var growthPercent = (float)age / customBush.AgeToProduce;
-        var x = (Math.Min(2, (int)(2 * growthPercent)) + __instance.tileSheetOffset.Value) * 16;
-        var y = customBush.TextureSpriteRow * 16;
-        ___sourceRect.Value = new Rectangle(x, y, 16, 32);
+        var x = (Math.Min(2, (int)(2 * growthPercent)) + __instance.tileSheetOffset.Value) * width;
+        var y = customBush.TextureSpriteRow * (customBush.BushType is BushType.Tea ? 16 : height);
+        ___sourceRect.Value = new Rectangle(x, y, width, height);
     }
 
-    [SuppressMessage("ReSharper", "RedundantAssignment", Justification = "Harmony")]
-    private static void Bush_shake_CreateObjectDebris(
-        string id,
-        int xTile,
-        int yTile,
-        int groundLevel,
-        int itemQuality,
-        float velocityMultiplier,
-        GameLocation? location,
-        Bush bush)
-    {
-        if (ModState.Api.TryGetShakeOffItem(bush, out var item))
-        {
-            for (var i = 0; i < item.Stack; i++)
-            {
-                Game1.createObjectDebris(
-                    item.QualifiedItemId,
-                    xTile,
-                    yTile,
-                    groundLevel,
-                    item.Quality,
-                    velocityMultiplier,
-                    location);
-            }
-
-            bush.ClearCachedData();
-            return;
-        }
-
-        // Create vanilla item
-        Game1.createObjectDebris(
-            id,
-            xTile,
-            yTile,
-            groundLevel,
-            itemQuality,
-            velocityMultiplier,
-            location);
-    }
-
-    private static IEnumerable<CodeInstruction> Bush_shake_transpiler(IEnumerable<CodeInstruction> instructions) =>
-        new CodeMatcher(instructions)
-            .MatchStartForward(
-                new CodeMatch(
-                    static instruction => instruction.Calls(
-                        AccessTools.DeclaredMethod(
-                            typeof(Game1),
-                            nameof(Game1.createObjectDebris),
-                            [
-                                typeof(string),
-                                typeof(int),
-                                typeof(int),
-                                typeof(int),
-                                typeof(int),
-                                typeof(float),
-                                typeof(GameLocation)
-                            ]))))
-            .RemoveInstruction()
-            .InsertAndAdvance(
-                new CodeInstruction(OpCodes.Ldarg_0),
-                CodeInstruction.Call(typeof(ModPatches), nameof(Bush_shake_CreateObjectDebris)))
+    private static IEnumerable<CodeInstruction> Bush_shake_transpiler(
+        IEnumerable<CodeInstruction> instructions,
+        ILGenerator generator) =>
+        new CodeMatcher(instructions, generator)
+            .MatchStartForward(new CodeMatch(OpCodes.Ldloc_1),
+                new CodeMatch(OpCodes.Ldc_I4_3),
+                new CodeMatch(OpCodes.Beq_S))
+            .CreateLabelWithOffsets(3, out var ifFalse)
+            .InsertAndAdvance(new CodeInstruction(OpCodes.Ldarg_0),
+                CodeInstruction.Call(typeof(ModPatches), nameof(TryOverrideDrop)),
+                new CodeInstruction(OpCodes.Brfalse, ifFalse),
+                new CodeInstruction(OpCodes.Ret))
             .InstructionEnumeration();
 
     [SuppressMessage("ReSharper", "SuggestBaseTypeForParameter", Justification = "Harmony")]
@@ -267,7 +265,7 @@ internal static class ModPatches
         bool allowNull,
         Bush bush)
     {
-        if (bush.modData.TryGetValue(Constants.ModDataId, out var bushId))
+        if (bush.modData.TryGetValue(ModConstants.ModDataId, out var bushId))
         {
             itemId = bushId;
         }
@@ -313,29 +311,29 @@ internal static class ModPatches
         bool probe,
         ref bool __result)
     {
-        if (!ModState.Data.ContainsKey(dropInItem.QualifiedItemId) ||
-            __instance.QualifiedItemId != "(BC)62" ||
-            __instance.hoeDirt.Value.crop != null)
+        if (__result || !ModState.Data.TryGetValue(dropInItem.QualifiedItemId, out var customBush))
         {
             return;
         }
 
-        var empty = __instance.hoeDirt.Value.crop is null && __instance.bush.Value is null;
-        if (!probe && empty)
+        __result = __instance.hoeDirt.Value.crop is null && __instance.bush.Value is null;
+        if (probe || !__result)
         {
-            __instance.bush.Value = new Bush(__instance.TileLocation, 3, __instance.Location)
-            {
-                modData = { [Constants.ModDataId] = dropInItem.QualifiedItemId }, inPot = { Value = true }
-            };
-
-            if (!__instance.Location.IsOutdoors)
-            {
-                __instance.bush.Value.loadSprite();
-                _ = Game1.playSound("coin");
-            }
+            return;
         }
 
-        __result = empty;
+        __instance.bush.Value = new Bush(__instance.TileLocation, (int)customBush.BushType, __instance.Location)
+        {
+            modData = { [ModConstants.ModDataId] = dropInItem.QualifiedItemId }, inPot = { Value = true }
+        };
+
+        if (__instance.Location.IsOutdoors)
+        {
+            return;
+        }
+
+        __instance.bush.Value.loadSprite();
+        _ = Game1.playSound("coin");
     }
 
     private static Item JunimoHarvester_update_CreateItem(Item i, Bush bush) =>
@@ -373,12 +371,13 @@ internal static class ModPatches
     [SuppressMessage("ReSharper", "SuggestBaseTypeForParameter", Justification = "Harmony")]
     private static Bush Object_placementAction_AddModData(Bush bush, SObject obj)
     {
-        if (!ModState.Data.ContainsKey(obj.QualifiedItemId))
+        if (!ModState.Data.TryGetValue(obj.QualifiedItemId, out var customBush))
         {
             return bush;
         }
 
-        bush.modData[Constants.ModDataId] = obj.QualifiedItemId;
+        bush.size.Value = (int)customBush.BushType;
+        bush.modData[ModConstants.ModDataId] = obj.QualifiedItemId;
         bush.setUpSourceRect();
         return bush;
     }
@@ -397,4 +396,21 @@ internal static class ModPatches
                 new CodeInstruction(OpCodes.Ldarg_0),
                 CodeInstruction.Call(typeof(ModPatches), nameof(Object_placementAction_AddModData)))
             .InstructionEnumeration();
+
+    private static bool TryOverrideDrop(Bush bush)
+    {
+        if (!ModState.Api.IsCustomBush(bush))
+        {
+            return false;
+        }
+
+        if (!ModState.Api.TryGetShakeOffItem(bush, out var item))
+        {
+            return true;
+        }
+
+        Game1.createItemDebris(item, Utility.PointToVector2(bush.getBoundingBox().Center), Game1.random.Next(1, 4));
+        bush.ClearCachedData();
+        return true;
+    }
 }
