@@ -1,4 +1,6 @@
+using LeFauxMods.Common.Integrations.CustomBush;
 using LeFauxMods.Common.Integrations.GenericModConfigMenu;
+using LeFauxMods.CustomBush.Models;
 using LeFauxMods.CustomBush.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -11,7 +13,7 @@ internal sealed class CustomBushOption : ComplexOption
 {
     private readonly List<ClickableComponent> components = [];
     private readonly IModHelper helper;
-    private readonly List<string>[] stages;
+    private readonly List<ICustomBushStage>[] stages;
     private readonly int[] ticks;
 
     public CustomBushOption(IModHelper helper)
@@ -62,7 +64,7 @@ internal sealed class CustomBushOption : ComplexOption
             index++;
         }
 
-        this.stages = new List<string>[this.components.Count];
+        this.stages = new List<ICustomBushStage>[this.components.Count];
         this.ticks = new int[this.components.Count];
         for (index = 0; index < this.components.Count; index++)
         {
@@ -72,14 +74,10 @@ internal sealed class CustomBushOption : ComplexOption
                 continue;
             }
 
-            this.stages[index] = [];
-            var nextStage = data.InitialStage;
-            while (nextStage is not null && data.Stages.TryGetValue(nextStage, out var stage))
-            {
-                this.stages[index].Add(nextStage);
-                nextStage = stage.ProgressRules.FirstOrDefault(rule => !this.stages[index].Contains(rule.StageId))
-                    ?.StageId;
-            }
+            this.stages[index] = ((BushStages)data.Stages)
+                .GetSequentialStages(data.InitialStage)
+                .Select(static tuple => tuple.Stage)
+                .ToList();
         }
     }
 
@@ -120,11 +118,7 @@ internal sealed class CustomBushOption : ComplexOption
 
             this.ticks[index] = Math.Max(0, Math.Min(this.stages[index].Count * 5, this.ticks[index]));
             var stageIndex = Math.Max(0, Math.Min(this.stages[index].Count - 1, this.ticks[index] / 5));
-            if (!data.Stages.TryGetValue(this.stages[index][stageIndex], out var stage))
-            {
-                continue;
-            }
-
+            var stage = this.stages[index][stageIndex];
             var texture = !string.IsNullOrWhiteSpace(stage.IndoorTexture)
                 ? ModState.GetTexture(stage.IndoorTexture)
                 : ModState.GetTexture(stage.Texture);

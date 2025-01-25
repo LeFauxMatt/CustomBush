@@ -106,7 +106,7 @@ internal sealed class ModEntry : Mod
             if (!customBush.TestCondition(customBush.Condition))
             {
                 customBush.Condition = data.ConditionsToProduce.FirstOrDefault(customBush.TestCondition);
-                customBush.ShakeOff = null;
+                customBush.Item = null;
             }
 
             if (!customBush.IsInSeason)
@@ -163,33 +163,27 @@ internal sealed class ModEntry : Mod
                 continue;
             }
 
-            var stages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var nextStage = data.InitialStage;
             var growNext = false;
-            while (nextStage is not null && data.Stages.TryGetValue(nextStage, out var stage))
+            foreach (var (stage, stageId, _) in ((BushStages)data.Stages).GetSequentialStages(data.InitialStage))
             {
                 if (growNext)
                 {
                     if (bush.TryGrow(stage.BushType))
                     {
-                        bush.modData[ModConstants.StageKey] = nextStage;
-                        bush.setUpSourceRect();
+                        bush.modData[ModConstants.StageKey] = stageId;
                     }
 
                     break;
                 }
 
-                if (nextStage == currentStage)
+                if (stageId == currentStage)
                 {
                     growNext = true;
                 }
-
-                stages.Add(nextStage);
-                nextStage = stage.ProgressRules.FirstOrDefault(rule => !stages.Contains(rule.StageId))?.StageId;
             }
 
             // Try to produce an item
-            if (nextStage == currentStage)
+            if (bush.modData[ModConstants.StageKey] == currentStage)
             {
             }
         }

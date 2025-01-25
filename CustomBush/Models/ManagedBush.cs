@@ -13,11 +13,13 @@ internal sealed class ManagedBush(Bush bush) : DictionaryDataModel(bush), ICusto
 {
     private Item? shakeItem;
 
-    public BushData Data => ModState.Data[this.Id];
+    /// <inheritdoc />
+    public ICustomBushData Data => ModState.Data[this.Id];
 
     /// <inheritdoc />
     public bool IsInSeason => !string.IsNullOrWhiteSpace(this.Condition);
 
+    /// <inheritdoc />
     public ICustomBushStage Stage => this.Data.Stages[this.StageId];
 
     /// <inheritdoc />
@@ -62,29 +64,11 @@ internal sealed class ManagedBush(Bush bush) : DictionaryDataModel(bush), ICusto
         }
     }
 
-    public int Quality
-    {
-        get => this.Get(nameof(this.Quality), StringToInt);
-        set => this.Set(nameof(this.Quality), value, IntToString);
-    }
-
-    public string? ShakeOff
-    {
-        get => this.Get(nameof(this.ShakeOff));
-        set => this.Set(nameof(this.ShakeOff), value ?? string.Empty);
-    }
-
     /// <inheritdoc />
     public int SpriteOffset
     {
         get => this.Get(nameof(this.SpriteOffset), StringToInt);
         set => this.Set(nameof(this.SpriteOffset), value, IntToString);
-    }
-
-    public int Stack
-    {
-        get => this.Get(nameof(this.Stack), StringToInt, 1);
-        set => this.Set(nameof(this.Stack), value, IntToString);
     }
 
     /// <inheritdoc />
@@ -103,6 +87,24 @@ internal sealed class ManagedBush(Bush bush) : DictionaryDataModel(bush), ICusto
 
     /// <inheritdoc />
     protected override string Prefix => ModConstants.ModDataPrefix;
+
+    private int Quality
+    {
+        get => this.Get(nameof(this.Quality), StringToInt);
+        set => this.Set(nameof(this.Quality), value, IntToString);
+    }
+
+    private string? ShakeOff
+    {
+        get => this.Get(nameof(this.ShakeOff));
+        set => this.Set(nameof(this.ShakeOff), value ?? string.Empty);
+    }
+
+    private int Stack
+    {
+        get => this.Get(nameof(this.Stack), StringToInt, 1);
+        set => this.Set(nameof(this.Stack), value, IntToString);
+    }
 
     /// <inheritdoc />
     public bool TestCondition(string? condition)
