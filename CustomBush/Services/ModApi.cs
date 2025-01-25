@@ -1,6 +1,4 @@
 using LeFauxMods.Common.Integrations.CustomBush;
-using LeFauxMods.CustomBush.Utilities;
-using Microsoft.Xna.Framework.Graphics;
 using StardewValley.TerrainFeatures;
 
 namespace LeFauxMods.CustomBush.Services;
@@ -9,17 +7,27 @@ namespace LeFauxMods.CustomBush.Services;
 public sealed class ModApi : ICustomBushApi
 {
     /// <inheritdoc />
-    public bool IsCustomBush(Bush bush) => this.TryGetBush(bush, out _);
+    public bool IsCustomBush(Bush bush) =>
+        bush.modData.TryGetValue(ModConstants.IdKey, out var id) && ModState.Data.ContainsKey(id);
 
     /// <inheritdoc />
-    public bool IsInSeason(Bush bush) =>
-        this.TryGetBush(bush, out var customBush) && customBush.ConditionsToProduce.Any(bush.TestCondition);
-
-    /// <inheritdoc />
-    public bool TryGetBush(Bush bush, [NotNullWhen(true)] out ICustomBushData? customBush)
+    public bool TryGetBush(Bush bush, [NotNullWhen(true)] out ICustomBush? customBush)
     {
         customBush = null;
-        if (!bush.modData.TryGetValue(ModConstants.ModDataId, out var id))
+        if (!ModState.ManagedBushes.TryGetValue(bush, out var managedBush))
+        {
+            return false;
+        }
+
+        customBush = managedBush;
+        return true;
+    }
+
+    /// <inheritdoc />
+    public bool TryGetData(Bush bush, [NotNullWhen(true)] out ICustomBushData? customBushData)
+    {
+        customBushData = null;
+        if (!bush.modData.TryGetValue(ModConstants.IdKey, out var id))
         {
             return false;
         }
@@ -29,45 +37,7 @@ public sealed class ModApi : ICustomBushApi
             return false;
         }
 
-        customBush = bushData;
-        return true;
-    }
-
-    /// <inheritdoc />
-    public bool TryGetShakeOffItem(Bush bush, [NotNullWhen(true)] out Item? item)
-    {
-        // Create cached item
-        if (bush.TryGetCachedData(true, out var itemId, out var itemQuality, out var itemStack, out _))
-        {
-            item = ItemRegistry.Create(itemId, itemStack, itemQuality);
-            return true;
-        }
-
-        item = null;
-        return false;
-    }
-
-    /// <inheritdoc />
-    public bool TryGetModData(
-        Bush bush,
-        [NotNullWhen(true)] out string? itemId,
-        out int itemQuality,
-        out int itemStack,
-        out string? condition) =>
-        bush.TryGetCachedData(bush.readyForHarvest(), out itemId, out itemQuality, out itemStack, out condition);
-
-    public bool TryGetTexture(Bush bush, [NotNullWhen(true)] out Texture2D? texture)
-    {
-        if (!this.TryGetBush(bush, out var customBush))
-        {
-            texture = null;
-            return false;
-        }
-
-        texture = bush.IsSheltered() && !string.IsNullOrWhiteSpace(customBush.IndoorTexture)
-            ? ModState.GetTexture(customBush.IndoorTexture)
-            : ModState.GetTexture(customBush.Texture);
-
+        customBushData = bushData;
         return true;
     }
 }

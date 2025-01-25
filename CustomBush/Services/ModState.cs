@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using LeFauxMods.Common.Integrations.ContentPatcher;
 using LeFauxMods.Common.Integrations.CustomBush;
 using LeFauxMods.Common.Services;
@@ -6,6 +7,8 @@ using LeFauxMods.CustomBush.Models;
 using Microsoft.Xna.Framework.Graphics;
 using StardewModdingAPI.Events;
 using StardewValley.Extensions;
+using StardewValley.Objects;
+using StardewValley.TerrainFeatures;
 
 namespace LeFauxMods.CustomBush.Services;
 
@@ -15,10 +18,11 @@ internal sealed class ModState
 
     private readonly ConfigHelper<ModConfig> configHelper;
     private readonly IModHelper helper;
+    private readonly ConditionalWeakTable<Bush, ManagedBush> managedBushes = new();
     private readonly IManifest manifest;
     private readonly Dictionary<string, Texture2D> textures = new(StringComparer.OrdinalIgnoreCase);
     private ConfigMenu? configMenu;
-    private Dictionary<string, CustomBushData>? data;
+    private Dictionary<string, BushData>? data;
 
     private ModState(IModHelper helper, IManifest manifest)
     {
@@ -31,6 +35,7 @@ internal sealed class ModState
         // Events
         helper.Events.Content.AssetsInvalidated += this.OnAssetsInvalidated;
         helper.Events.GameLoop.GameLaunched += this.OnGameLaunched;
+        helper.Events.GameLoop.ReturnedToTitle += this.OnReturnedToTitle;
 
         ModEvents.Subscribe<ConditionsApiReadyEventArgs>(this.OnConditionsApiReady);
     }
@@ -41,16 +46,50 @@ internal sealed class ModState
 
     public static ConfigHelper<ModConfig> ConfigHelper => Instance!.configHelper;
 
-    public static Dictionary<string, CustomBushData> Data => Instance!.data ??= Instance.GetData();
+    public static Dictionary<string, BushData> Data => Instance!.data ??= Instance.GetData();
 
-    public static void Init(IModHelper helper, IManifest manifest) => Instance ??= new ModState(helper, manifest);
+    public static ConditionalWeakTable<Bush, ManagedBush> ManagedBushes => Instance!.managedBushes;
+
+    public static void ForEachBush(Func<ManagedBush, bool> action) =>
+        Utility.ForEachLocation(location =>
+        {
+            var bushes =
+                location.terrainFeatures.Values.OfType<Bush>()
+                    .Concat(location.largeTerrainFeatures.OfType<Bush>())
+                    .Concat(location.Objects.Values.OfType<IndoorPot>().Select(static pot => pot.bush.Value)
+                        .Where(static bush => bush is not null));
+
+            foreach (var bush in bushes)
+            {
+                if (!bush.modData.TryGetValue(ModConstants.IdKey, out var id) ||
+                    !Data.TryGetValue(id, out var customBush))
+                {
+                    continue;
+                }
+
+                if (!ManagedBushes.TryGetValue(bush, out var managedBush))
+                {
+                    managedBush = new ManagedBush(bush);
+                    ManagedBushes.Add(bush, managedBush);
+                }
+
+                if (!action(managedBush))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        });
 
     public static Texture2D GetTexture(string path) =>
         Instance!.textures.GetOrAdd(path, () => Instance.helper.GameContent.Load<Texture2D>(path));
 
-    private Dictionary<string, CustomBushData> GetData()
+    public static void Init(IModHelper helper, IManifest manifest) => Instance ??= new ModState(helper, manifest);
+
+    private Dictionary<string, BushData> GetData()
     {
-        this.data ??= this.helper.GameContent.Load<Dictionary<string, CustomBushData>>(ModConstants.DataPath);
+        this.data ??= this.helper.GameContent.Load<Dictionary<string, BushData>>(ModConstants.DataPath);
         this.configMenu?.SetupMenu();
         return this.data;
     }
@@ -76,12 +115,14 @@ internal sealed class ModState
         this.helper.Events.GameLoop.UpdateTicked += this.OnUpdateTicked;
     }
 
+    private void OnGameLaunched(object? sender, GameLaunchedEventArgs e) =>
+        this.configMenu = new ConfigMenu(this.helper, this.manifest);
+
+    private void OnReturnedToTitle(object? sender, ReturnedToTitleEventArgs e) => this.managedBushes.Clear();
+
     private void OnUpdateTicked(object? sender, UpdateTickedEventArgs e)
     {
         this.helper.Events.GameLoop.UpdateTicked -= this.OnUpdateTicked;
         _ = Data;
     }
-
-    private void OnGameLaunched(object? sender, GameLaunchedEventArgs e) =>
-        this.configMenu = new ConfigMenu(this.helper, this.manifest);
 }

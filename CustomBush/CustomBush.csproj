@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <Import Project="..\FauxCore\FauxCommon\Common.targets"/>
+  <Import Project="..\FauxCore\FauxCommon\Common.targets" />
   <Import Project="..\FauxCore\FauxCommon\FauxCommon.projitems" Label="Shared" />
 
   <PropertyGroup>

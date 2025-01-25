@@ -31,7 +31,18 @@ internal sealed class ConfigMenu
 
     public void SetupMenu()
     {
+#if DEBUG
+        this.gmcm.Register(this.Reset, ConfigHelper.Save);
+#else
         this.gmcm.Register(ConfigHelper.Reset, ConfigHelper.Save);
+#endif
+
         this.gmcm.AddComplexOption(new CustomBushOption(this.helper));
+    }
+
+    private void Reset()
+    {
+        ConfigHelper.Reset();
+        this.SetupMenu();
     }
 }

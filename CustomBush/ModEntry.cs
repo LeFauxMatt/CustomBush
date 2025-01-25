@@ -1,12 +1,8 @@
-using System.Globalization;
-using LeFauxMods.Common.Integrations.CustomBush;
 using LeFauxMods.Common.Utilities;
 using LeFauxMods.CustomBush.Models;
 using LeFauxMods.CustomBush.Services;
 using LeFauxMods.CustomBush.Utilities;
 using StardewModdingAPI.Events;
-using StardewValley.Extensions;
-using StardewValley.Internal;
 using StardewValley.Objects;
 using StardewValley.TerrainFeatures;
 
@@ -26,178 +22,176 @@ internal sealed class ModEntry : Mod
 
         // Events
         helper.Events.Content.AssetRequested += OnAssetRequested;
-        helper.Events.GameLoop.DayStarted += OnDayStarted;
-    }
-
-    /// <inheritdoc />
-    public override object GetApi(IModInfo mod) => new ModApi();
-
-    [EventPriority(EventPriority.High)]
-    private static void OnDayStarted(object? sender, DayStartedEventArgs e)
-    {
-        const string logFormat = "{0} did not select {1}. Failed: {2}";
+        helper.Events.Input.ButtonsChanged += this.OnButtonsChanged;
 
         if (!Context.IsMainPlayer)
         {
             return;
         }
 
-        Utility.ForEachLocation(static location =>
+        helper.Events.GameLoop.DayStarted += OnDayStarted;
+    }
+
+    /// <inheritdoc />
+    public override object GetApi(IModInfo mod) => new ModApi();
+
+    private static void OnAssetRequested(object? sender, AssetRequestedEventArgs e)
+    {
+        if (e.NameWithoutLocale.IsEquivalentTo(ModConstants.DataPath))
         {
-            var bushes =
-                location.terrainFeatures.Values.OfType<Bush>().Concat(
-                    location.Objects.Values.OfType<IndoorPot>().Select(static pot => pot.bush.Value)
-                        .Where(static bush => bush is not null));
+            e.LoadFrom(
+                static () => new Dictionary<string, BushData>(StringComparer.OrdinalIgnoreCase),
+                AssetLoadPriority.Exclusive);
 
-            foreach (var bush in bushes)
+            e.Edit(
+                static asset =>
+                {
+                    foreach (var (key, value) in asset.AsDictionary<string, BushData>().Data)
+                    {
+                        value.Id = key;
+                    }
+                },
+                (AssetEditPriority)int.MaxValue);
+        }
+    }
+
+    [EventPriority(EventPriority.High)]
+    private static void OnDayStarted(object? sender, DayStartedEventArgs e) =>
+        ModState.ForEachBush(static customBush =>
+        {
+            var data = customBush.Data;
+            if (!data.Stages.TryGetValue(customBush.StageId, out var stage))
             {
-                // Check if bush has custom bush data
-                if (!ModState.Api.TryGetBush(bush, out var customBush) ||
-                    customBush is not CustomBushData data)
+                return true;
+            }
+
+            // Increment the stage counter
+            if (customBush.TestCondition(stage.ConditionToProgress))
+            {
+                customBush.StageCounter++;
+            }
+
+            // Check progress rules
+            foreach (var progressRule in stage.ProgressRules)
+            {
+                if (!customBush.TestCondition(progressRule.Condition))
                 {
                     continue;
                 }
 
-                // Skip additional checks if cached data is still relevant
-                if (ModState.Api.TryGetModData(bush, out _, out _, out _, out _))
+                // Check available space for bush size
+
+
+                if (!data.Stages.TryGetValue(progressRule.StageId, out var nextStage))
                 {
-                    continue;
-                }
-
-                bush.ClearCachedData();
-                bush.tileSheetOffset.Value = 0;
-                bush.setUpSourceRect();
-
-                var age = bush.getAge();
-
-                // Check if bush meets the age requirement
-                if (age < customBush.AgeToProduce)
-                {
-                    Log.Trace(
-                        "{0} will not produce. Age: {1} < {2}",
-                        customBush.Id,
-                        age.ToString(CultureInfo.InvariantCulture),
-                        customBush.AgeToProduce.ToString(CultureInfo.InvariantCulture));
-
-                    continue;
-                }
-
-                // Check if bush meets any condition requirement
-                var condition = customBush.ConditionsToProduce.FirstOrDefault(bush.TestCondition);
-                if (string.IsNullOrWhiteSpace(condition))
-                {
-                    Log.Trace("{0} will not produce. None of the required conditions was met.", customBush.Id);
-                    continue;
-                }
-
-                // Try to produce item
-                Log.Trace("{0} attempting to produce random item.", customBush.Id);
-                ICustomBushDrop? drop = null;
-                Item? item = null;
-                foreach (var itemProduced in data.ItemsProduced)
-                {
-                    // Test overall chance
-                    if (!Game1.random.NextBool(itemProduced.Chance))
-                    {
-                        continue;
-                    }
-
-                    // Test drop condition
-                    if (itemProduced.Condition != null &&
-                        !GameStateQuery.CheckConditions(
-                            itemProduced.Condition,
-                            bush.Location,
-                            null,
-                            null,
-                            null,
-                            null,
-                            bush.Location.SeedsIgnoreSeasonsHere() ? GameStateQuery.SeasonQueryKeys : null))
-                    {
-                        Log.Trace(logFormat, customBush.Id, itemProduced.Id, itemProduced.Condition);
-                        continue;
-                    }
-
-                    // Test season condition
-                    if (itemProduced.Season.HasValue &&
-                        bush.Location.SeedsIgnoreSeasonsHere() &&
-                        itemProduced.Season != Game1.GetSeasonForLocation(bush.Location))
-                    {
-                        Log.Trace(logFormat, customBush.Id, itemProduced.Id, itemProduced.Season.ToString());
-                        continue;
-                    }
-
-                    // Try to produce the item
-                    item = ItemQueryResolver.TryResolveRandomItem(
-                        itemProduced,
-                        new ItemQueryContext(bush.Location, null, null,
-                            $"custom bush '{customBush.Id}' > drop '{itemProduced.Id}'"),
-                        false,
-                        null,
-                        null,
-                        null,
-                        (query, error) => Log.Error(
-                            "{0} failed parsing item query {1} for item {2}: {3}",
-                            customBush.Id,
-                            query,
-                            itemProduced.Id,
-                            error));
-
-                    if (item is null)
-                    {
-                        continue;
-                    }
-
-                    drop = itemProduced;
+                    Log.Warn("Invalid stage id {0}", progressRule.StageId);
                     break;
                 }
 
-                if (drop is null || item is null)
+                // Drop items
+                foreach (var drop in progressRule.ItemsDropped)
                 {
-                    Log.Trace("{0} will not produce. No item was produced.", customBush.Id);
+                    if (!customBush.TestCondition(drop.Condition))
+                    {
+                    }
+                }
+
+                // Update bush stage
+                customBush.StageId = progressRule.StageId;
+                stage = nextStage;
+                break;
+            }
+
+            // Check or update conditions to produce
+            if (!customBush.TestCondition(customBush.Condition))
+            {
+                customBush.Condition = data.ConditionsToProduce.FirstOrDefault(customBush.TestCondition);
+                customBush.ShakeOff = null;
+            }
+
+            if (!customBush.IsInSeason)
+            {
+                return true;
+            }
+
+            // Check item drops
+            foreach (var drop in stage.ItemsProduced)
+            {
+                if (customBush.Item is not null && !drop.ReplaceItem)
+                {
                     continue;
                 }
 
-                Log.Trace(
-                    "{0} selected {1} to grow with quality {2} and quantity {3}.",
-                    customBush.Id,
-                    item.QualifiedItemId,
-                    item.Quality,
-                    item.Stack);
+                // Try to produce the item
+                if (!customBush.TryProduceDrop(drop, out var item))
+                {
+                    continue;
+                }
 
-                bush.modData[ModConstants.ModDataCondition] = condition;
-                bush.modData[ModConstants.ModDataItem] = item.QualifiedItemId;
-                bush.modData[ModConstants.ModDataQuality] = item.Quality.ToString(CultureInfo.InvariantCulture);
-                bush.modData[ModConstants.ModDataStack] = item.Stack.ToString(CultureInfo.InvariantCulture);
-                bush.modData[ModConstants.ModDataSpriteOffset] =
-                    drop.SpriteOffset.ToString(CultureInfo.InvariantCulture);
-                bush.tileSheetOffset.Value = 1;
-                bush.setUpSourceRect();
+                customBush.Item = item;
+                customBush.SpriteOffset = drop.SpriteOffset;
+                break;
             }
 
             return true;
         });
-    }
 
-    private static void OnAssetRequested(object? sender, AssetRequestedEventArgs e)
+    private void OnButtonsChanged(object? sender, ButtonsChangedEventArgs e)
     {
-        if (!e.NameWithoutLocale.IsEquivalentTo(ModConstants.DataPath))
+        if (!Context.IsPlayerFree || !ModState.Config.GrowBushKey.JustPressed())
         {
             return;
         }
 
-        e.LoadFrom(
-            static () => new Dictionary<string, CustomBushData>(StringComparer.OrdinalIgnoreCase),
-            AssetLoadPriority.Exclusive);
+        var location = Game1.player.currentLocation;
+        var bushes = location.terrainFeatures.Values.OfType<Bush>()
+            .Concat(location.largeTerrainFeatures.OfType<Bush>())
+            .Concat(location.Objects.Values.OfType<IndoorPot>().Select(static pot => pot.bush.Value))
+            .Where(static bush =>
+                bush is not null &&
+                bush.Tile.X >= Game1.player.Tile.X - 1 &&
+                bush.Tile.X <= Game1.player.Tile.X + 1 &&
+                bush.Tile.Y >= Game1.player.Tile.Y - 1 &&
+                bush.Tile.Y <= Game1.player.Tile.Y + 1).ToList();
 
-        e.Edit(
-            static asset =>
+        foreach (var bush in bushes)
+        {
+            if (!bush.modData.TryGetValue(ModConstants.IdKey, out var id) ||
+                !bush.modData.TryGetValue(ModConstants.StageKey, out var currentStage) ||
+                !ModState.Data.TryGetValue(id, out var data))
             {
-                var data = asset.AsDictionary<string, CustomBushData>().Data;
-                foreach (var (key, value) in data)
+                continue;
+            }
+
+            var stages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var nextStage = data.InitialStage;
+            var growNext = false;
+            while (nextStage is not null && data.Stages.TryGetValue(nextStage, out var stage))
+            {
+                if (growNext)
                 {
-                    value.Id = key;
+                    if (bush.TryGrow(stage.BushType))
+                    {
+                        bush.modData[ModConstants.StageKey] = nextStage;
+                        bush.setUpSourceRect();
+                    }
+
+                    break;
                 }
-            },
-            (AssetEditPriority)int.MaxValue);
+
+                if (nextStage == currentStage)
+                {
+                    growNext = true;
+                }
+
+                stages.Add(nextStage);
+                nextStage = stage.ProgressRules.FirstOrDefault(rule => !stages.Contains(rule.StageId))?.StageId;
+            }
+
+            // Try to produce an item
+            if (nextStage == currentStage)
+            {
+            }
+        }
     }
 }

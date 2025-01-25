@@ -1,4 +1,5 @@
-﻿using LeFauxMods.Common.Integrations.GenericModConfigMenu;
+using LeFauxMods.Common.Integrations.GenericModConfigMenu;
+using LeFauxMods.CustomBush.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using StardewValley.Menus;
@@ -8,28 +9,41 @@ namespace LeFauxMods.CustomBush.Services;
 
 internal sealed class CustomBushOption : ComplexOption
 {
-    private readonly int[] age;
     private readonly List<ClickableComponent> components = [];
     private readonly IModHelper helper;
+    private readonly List<string>[] stages;
+    private readonly int[] ticks;
 
     public CustomBushOption(IModHelper helper)
     {
         this.helper = helper;
         this.Height = 2 * Game1.tileSize * (int)Math.Ceiling(ModState.Data.Count / 14f);
         var index = 0;
-        foreach (var (id, customBush) in ModState.Data)
+        foreach (var (id, data) in ModState.Data)
         {
-            var assetName = helper.GameContent.ParseAssetName(customBush.Texture);
+            if (!data.Stages.TryGetValue(data.InitialStage, out var initialStage))
+            {
+                continue;
+            }
+
+            var assetName = helper.GameContent.ParseAssetName(initialStage.Texture);
             if (assetName.IsEquivalentTo("TileSheets/bushes"))
             {
                 continue;
             }
 
-            var row = index / 14;
-            var col = index % 14;
+            var maxHeight = data.Stages.Values.Max(static stage => stage.BushType.GetHeight());
+            var maxWidth = data.Stages.Values.Max(static stage => stage.BushType.GetWidth());
+
+            var row = index / maxWidth;
+            var col = index % maxHeight;
             var component =
                 new ClickableComponent(
-                    new Rectangle(col * Game1.tileSize, row * Game1.tileSize * 2, Game1.tileSize, Game1.tileSize * 2),
+                    new Rectangle(
+                        col * maxWidth,
+                        row * maxHeight,
+                        maxWidth,
+                        maxHeight),
                     id) { myID = index };
 
             if (col > 0)
@@ -48,7 +62,25 @@ internal sealed class CustomBushOption : ComplexOption
             index++;
         }
 
-        this.age = new int[index];
+        this.stages = new List<string>[this.components.Count];
+        this.ticks = new int[this.components.Count];
+        for (index = 0; index < this.components.Count; index++)
+        {
+            var component = this.components[index];
+            if (!ModState.Data.TryGetValue(component.name, out var data))
+            {
+                continue;
+            }
+
+            this.stages[index] = [];
+            var nextStage = data.InitialStage;
+            while (nextStage is not null && data.Stages.TryGetValue(nextStage, out var stage))
+            {
+                this.stages[index].Add(nextStage);
+                nextStage = stage.ProgressRules.FirstOrDefault(rule => !this.stages[index].Contains(rule.StageId))
+                    ?.StageId;
+            }
+        }
     }
 
     /// <inheritdoc />
@@ -70,7 +102,7 @@ internal sealed class CustomBushOption : ComplexOption
         for (var index = 0; index < this.components.Count; index++)
         {
             var component = this.components[index];
-            if (!ModState.Data.TryGetValue(component.name, out var customBush))
+            if (!ModState.Data.TryGetValue(component.name, out var data))
             {
                 continue;
             }
@@ -80,21 +112,32 @@ internal sealed class CustomBushOption : ComplexOption
                 X = (int)pos.X + component.bounds.X, Y = (int)pos.Y + component.bounds.Y
             };
 
-            this.age[index] = component.bounds.Contains(mouseX, mouseY)
-                ? this.age[index] + 5
-                : this.age[index] - 2;
+            var hover = component.bounds.Contains(mouseX, mouseY);
 
-            this.age[index] = Math.Max(0, Math.Min(customBush.AgeToProduce * 5, this.age[index]));
+            this.ticks[index] = hover
+                ? this.ticks[index] + 1
+                : this.ticks[index] - 1;
 
-            var texture = !string.IsNullOrWhiteSpace(customBush.IndoorTexture)
-                ? ModState.GetTexture(customBush.IndoorTexture)
-                : ModState.GetTexture(customBush.Texture);
+            this.ticks[index] = Math.Max(0, Math.Min(this.stages[index].Count * 5, this.ticks[index]));
+            var stageIndex = Math.Max(0, Math.Min(this.stages[index].Count - 1, this.ticks[index] / 5));
+            if (!data.Stages.TryGetValue(this.stages[index][stageIndex], out var stage))
+            {
+                continue;
+            }
+
+            var texture = !string.IsNullOrWhiteSpace(stage.IndoorTexture)
+                ? ModState.GetTexture(stage.IndoorTexture)
+                : ModState.GetTexture(stage.Texture);
+
+            var xOffset = this.ticks[index] == this.stages[index].Count * 5
+                ? stage.ItemsProduced.Min(static drop => drop.SpriteOffset) * stage.BushType.GetWidth()
+                : 0;
 
             var sourceRect = new Rectangle(
-                (int)Math.Min(3, 3 * ((float)this.age[index] / customBush.AgeToProduce / 5)) * 16,
-                customBush.TextureSpriteRow * 16,
-                16,
-                32);
+                stage.SpritePosition.X + xOffset,
+                stage.SpritePosition.Y,
+                stage.BushType.GetWidth(),
+                stage.BushType.GetHeight());
 
             spriteBatch.Draw(
                 texture,
@@ -108,8 +151,8 @@ internal sealed class CustomBushOption : ComplexOption
 
             if (component.bounds.Contains(mouseX, mouseY))
             {
-                hoverTitle ??= TokenParser.ParseText(customBush.DisplayName);
-                hoverText ??= TokenParser.ParseText(customBush.Description);
+                hoverTitle ??= TokenParser.ParseText(data.DisplayName);
+                hoverText ??= TokenParser.ParseText(data.Description);
             }
         }
 

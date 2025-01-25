@@ -2,23 +2,15 @@ namespace LeFauxMods.CustomBush;
 
 internal static class ModConstants
 {
-    public const string DataPath = ModId + "/Data";
+    public const string BaseDataPath = ModId + "/Data";
 
-    public const string ModDataAge = ModId + "/Age";
+    public const string DataPath = BaseDataPath + "/2.0";
 
-    public const string ModDataCondition = ModId + "/Condition";
+    public const string IdKey = ModDataPrefix + "Id";
 
-    public const string ModDataId = ModId + "/Id";
-
-    public const string ModDataItem = ModId + "/ShakeOff";
-
-    public const string ModDataItemSeason = ModId + "/Season";
-
-    public const string ModDataQuality = ModId + "/Quality";
-
-    public const string ModDataSpriteOffset = ModId + "/SpriteOffset";
-
-    public const string ModDataStack = ModId + "/Stack";
+    public const string ModDataPrefix = ModId + "/";
 
     public const string ModId = "furyx639.CustomBush";
+
+    public const string StageKey = ModDataPrefix + "StageId";
 }

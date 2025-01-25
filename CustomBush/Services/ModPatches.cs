@@ -2,7 +2,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
 using LeFauxMods.Common.Integrations.CustomBush;
-using LeFauxMods.Common.Utilities;
+using LeFauxMods.CustomBush.Models;
 using LeFauxMods.CustomBush.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -53,10 +53,6 @@ internal static class ModPatches
             AccessTools.DeclaredMethod(typeof(Bush), nameof(Bush.performToolAction)),
             postfix: new HarmonyMethod(typeof(ModPatches), nameof(Bush_performToolAction_postfix)),
             transpiler: new HarmonyMethod(typeof(ModPatches), nameof(Bush_performToolAction_transpiler)));
-        //
-        // _ = harmony.Patch(
-        //     AccessTools.DeclaredMethod(typeof(Bush), nameof(Bush.seasonUpdate)),
-        //     postfix: new HarmonyMethod(typeof(ModPatches), nameof(Bush_seasonUpdate_postfix)));
 
         _ = harmony.Patch(
             AccessTools.DeclaredMethod(typeof(Bush), nameof(Bush.setUpSourceRect)),
@@ -103,35 +99,71 @@ internal static class ModPatches
         NetRectangle ___sourceRect,
         float ___yDrawOffset)
     {
-        if (!ModState.Api.TryGetTexture(__instance, out var texture))
+        if (!ModState.ManagedBushes.TryGetValue(__instance, out var managedBush))
         {
             return true;
         }
+
+        var effectiveSize = __instance.size.Value switch
+        {
+            3 => 0,
+            4 => 1,
+            _ => __instance.size.Value
+        };
 
         var x = (__instance.Tile.X + 0.5f) * Game1.tileSize;
         var y = ((__instance.Tile.Y + 1f) * Game1.tileSize) + ___yDrawOffset;
         if (__instance.drawShadow.Value)
         {
-            spriteBatch.Draw(
-                Game1.shadowTexture,
-                Game1.GlobalToLocal(Game1.viewport, new Vector2(x, y - 4)),
-                Game1.shadowTexture.Bounds,
-                Color.White,
-                0,
-                new Vector2(Game1.shadowTexture.Bounds.Center.X, Game1.shadowTexture.Bounds.Center.Y),
-                Game1.pixelZoom,
-                SpriteEffects.None,
-                1E-06f);
+            if (effectiveSize > 0)
+            {
+                spriteBatch.Draw(
+                    Game1.mouseCursors,
+                    Game1.GlobalToLocal(Game1.viewport,
+                        new Vector2(((__instance.Tile.X + (effectiveSize == 1 ? 0.5f : 1f)) * Game1.tileSize) - 51f,
+                            (__instance.Tile.Y * Game1.tileSize) - 16f + ___yDrawOffset)),
+                    Bush.shadowSourceRect,
+                    Color.White,
+                    0f,
+                    Vector2.Zero,
+                    Game1.pixelZoom,
+                    __instance.flipped.Value ? SpriteEffects.FlipHorizontally : SpriteEffects.None,
+                    1E-06f);
+            }
+            else
+            {
+                spriteBatch.Draw(
+                    Game1.shadowTexture,
+                    Game1.GlobalToLocal(Game1.viewport,
+                        new Vector2((__instance.Tile.X * Game1.tileSize) + 32f,
+                            (__instance.Tile.Y * Game1.tileSize) + Game1.tileSize - 4f + ___yDrawOffset)),
+                    Game1.shadowTexture.Bounds,
+                    Color.White,
+                    0f,
+                    Game1.shadowTexture.Bounds.Center.ToVector2(),
+                    Game1.pixelZoom,
+                    SpriteEffects.None,
+                    1E-06f);
+            }
         }
 
-        var xOffset = __instance.modData.GetInt(ModConstants.ModDataSpriteOffset) * 16;
+        var xOffset = __instance.tileSheetOffset.Value == 0
+            ? 0
+            : managedBush.SpriteOffset * ___sourceRect.Value.Width;
+
         spriteBatch.Draw(
-            texture,
-            Game1.GlobalToLocal(Game1.viewport, new Vector2(x, y)),
+            managedBush.Texture,
+            Game1.GlobalToLocal(Game1.viewport,
+                new Vector2((__instance.Tile.X * Game1.tileSize) + ((effectiveSize + 1) * Game1.tileSize / 2),
+                    ((__instance.Tile.Y + 1f) * Game1.tileSize) -
+                    (effectiveSize > 0 && (!__instance.townBush.Value || effectiveSize != 1) &&
+                     __instance.size.Value != 4
+                        ? Game1.tileSize
+                        : 0) + ___yDrawOffset)),
             ___sourceRect.Value with { X = ___sourceRect.Value.X + xOffset },
             Color.White,
             ___shakeRotation,
-            new Vector2(8, 32),
+            new Vector2((effectiveSize + 1) * 16 / 2, 32f),
             Game1.pixelZoom,
             __instance.flipped.Value ? SpriteEffects.FlipHorizontally : SpriteEffects.None,
             ((__instance.getBoundingBox().Center.Y + 48) / 10000f) - (__instance.Tile.X / 1000000f));
@@ -143,34 +175,29 @@ internal static class ModPatches
     [SuppressMessage("ReSharper", "SuggestBaseTypeForParameter", Justification = "Harmony")]
     private static void Bush_GetShakeOffItem_postfix(Bush __instance, ref string? __result)
     {
-        if (!ModState.Api.IsCustomBush(__instance))
+        if (!ModState.ManagedBushes.TryGetValue(__instance, out var managedBush))
         {
             return;
         }
 
-        if (__instance.modData.TryGetValue(ModConstants.ModDataItem, out var itemId) &&
-            !string.IsNullOrWhiteSpace(itemId))
-        {
-            __result = itemId;
-            return;
-        }
-
-        __result = null;
+        __result = managedBush.Item?.QualifiedItemId;
     }
 
     [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony")]
     private static void Bush_inBloom_postfix(Bush __instance, ref bool __result)
     {
-        if (ModState.Api.IsCustomBush(__instance))
+        if (!ModState.ManagedBushes.TryGetValue(__instance, out var managedBush))
         {
-            __result = ModState.Api.TryGetModData(__instance, out _, out _, out _, out _);
+            return;
         }
+
+        __result = managedBush.Item is not null;
     }
 
     [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony")]
     private static void Bush_isDestroyable_postfix(Bush __instance, ref bool __result)
     {
-        if (ModState.Api.IsCustomBush(__instance))
+        if (ModState.ManagedBushes.TryGetValue(__instance, out _))
         {
             __result = true;
         }
@@ -178,7 +205,8 @@ internal static class ModPatches
 
     private static void Bush_performToolAction_postfix(Bush __instance, Tool t, int explosion, Vector2 tileLocation)
     {
-        if (!ModState.Api.TryGetBush(__instance, out var customBush) || customBush.BushType is BushType.Tea)
+        if (__instance.size.Value == Bush.greenTeaBush ||
+            !ModState.ManagedBushes.TryGetValue(__instance, out var managedBush))
         {
             return;
         }
@@ -190,7 +218,7 @@ internal static class ModPatches
 
         if (__instance.health <= -1)
         {
-            Game1.createItemDebris(ItemRegistry.Create(customBush.Id), tileLocation * Game1.tileSize, 2,
+            Game1.createItemDebris(ItemRegistry.Create(managedBush.Id), tileLocation * Game1.tileSize, 2,
                 __instance.Location);
         }
     }
@@ -212,35 +240,23 @@ internal static class ModPatches
     [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Harmony")]
     private static void Bush_setUpSourceRect_postfix(Bush __instance, NetRectangle ___sourceRect)
     {
-        if (!ModState.Api.TryGetBush(__instance, out var customBush) || string.IsNullOrWhiteSpace(customBush.Texture))
+        if (!ModState.ManagedBushes.TryGetValue(__instance, out var managedBush))
         {
             return;
         }
 
-        var assetName = Helper.GameContent.ParseAssetName(customBush.Texture);
+        var stage = managedBush.Stage;
+        var assetName = Helper.GameContent.ParseAssetName(stage.Texture);
         if (assetName.IsEquivalentTo("TileSheets/bushes"))
         {
             return;
         }
 
-        var width = customBush.BushType switch
-        {
-            BushType.Medium or BushType.Walnut => 32,
-            BushType.Large => 28,
-            _ => 16
-        };
-
-        var height = customBush.BushType switch
-        {
-            BushType.Medium or BushType.Large => 48,
-            _ => 32
-        };
-
-        var age = __instance.getAge();
-        var growthPercent = (float)age / customBush.AgeToProduce;
-        var x = (Math.Min(2, (int)(2 * growthPercent)) + __instance.tileSheetOffset.Value) * width;
-        var y = customBush.TextureSpriteRow * (customBush.BushType is BushType.Tea ? 16 : height);
-        ___sourceRect.Value = new Rectangle(x, y, width, height);
+        ___sourceRect.Value = new Rectangle(
+            stage.SpritePosition.X,
+            stage.SpritePosition.Y,
+            stage.BushType.GetWidth(),
+            stage.BushType.GetHeight());
     }
 
     private static IEnumerable<CodeInstruction> Bush_shake_transpiler(
@@ -265,9 +281,9 @@ internal static class ModPatches
         bool allowNull,
         Bush bush)
     {
-        if (bush.modData.TryGetValue(ModConstants.ModDataId, out var bushId))
+        if (ModState.ManagedBushes.TryGetValue(bush, out var managedBush))
         {
-            itemId = bushId;
+            itemId = managedBush.Id;
         }
 
         return ItemRegistry.Create(itemId, amount, quality, allowNull);
@@ -283,12 +299,12 @@ internal static class ModPatches
         ref string deniedMessage)
     {
         var metadata = ItemRegistry.GetMetadata(itemId);
-        if (metadata is null || !ModState.Data.TryGetValue(metadata.QualifiedItemId, out var bushModel))
+        if (metadata is null || !ModState.Data.TryGetValue(metadata.QualifiedItemId, out var data))
         {
             return;
         }
 
-        var parameters = new object[] { bushModel.PlantableLocationRules, isGardenPot, defaultAllowed, null! };
+        var parameters = new object[] { data.PlantableLocationRules, isGardenPot, defaultAllowed, null! };
         __result = (bool)CheckItemPlantRules.Invoke(__instance, parameters)!;
         deniedMessage = (string)parameters[3];
     }
@@ -311,7 +327,9 @@ internal static class ModPatches
         bool probe,
         ref bool __result)
     {
-        if (__result || !ModState.Data.TryGetValue(dropInItem.QualifiedItemId, out var customBush))
+        if (__result ||
+            !ModState.Data.TryGetValue(dropInItem.QualifiedItemId, out var customBush) ||
+            !customBush.Stages.TryGetValue(customBush.InitialStage, out var stage))
         {
             return;
         }
@@ -322,9 +340,9 @@ internal static class ModPatches
             return;
         }
 
-        __instance.bush.Value = new Bush(__instance.TileLocation, (int)customBush.BushType, __instance.Location)
+        __instance.bush.Value = new Bush(__instance.TileLocation, (int)stage.BushType, __instance.Location)
         {
-            modData = { [ModConstants.ModDataId] = dropInItem.QualifiedItemId }, inPot = { Value = true }
+            modData = { [ModConstants.IdKey] = dropInItem.QualifiedItemId }, inPot = { Value = true }
         };
 
         if (__instance.Location.IsOutdoors)
@@ -337,7 +355,9 @@ internal static class ModPatches
     }
 
     private static Item JunimoHarvester_update_CreateItem(Item i, Bush bush) =>
-        ModState.Api.TryGetShakeOffItem(bush, out var item) ? item : i;
+        ModState.ManagedBushes.TryGetValue(bush, out var managedBush)
+            ? managedBush.Item ?? i
+            : i;
 
     private static IEnumerable<CodeInstruction>
         JunimoHarvester_update_transpiler(IEnumerable<CodeInstruction> instructions) =>
@@ -362,7 +382,9 @@ internal static class ModPatches
             return;
         }
 
-        if (ModState.Data.ContainsKey(__instance.QualifiedItemId))
+        if (ModState.Data.TryGetValue(__instance.QualifiedItemId, out var customBush) &&
+            customBush.Stages.TryGetValue(customBush.InitialStage, out var stage) &&
+            stage.BushType is BushType.Tea)
         {
             __result = true;
         }
@@ -371,13 +393,14 @@ internal static class ModPatches
     [SuppressMessage("ReSharper", "SuggestBaseTypeForParameter", Justification = "Harmony")]
     private static Bush Object_placementAction_AddModData(Bush bush, SObject obj)
     {
-        if (!ModState.Data.TryGetValue(obj.QualifiedItemId, out var customBush))
+        if (!ModState.Data.TryGetValue(obj.QualifiedItemId, out var data))
         {
             return bush;
         }
 
-        bush.size.Value = (int)customBush.BushType;
-        bush.modData[ModConstants.ModDataId] = obj.QualifiedItemId;
+        var managedBush = new ManagedBush(bush) { Id = obj.QualifiedItemId, StageId = data.InitialStage };
+
+        ModState.ManagedBushes.Add(bush, managedBush);
         bush.setUpSourceRect();
         return bush;
     }
@@ -399,18 +422,22 @@ internal static class ModPatches
 
     private static bool TryOverrideDrop(Bush bush)
     {
-        if (!ModState.Api.IsCustomBush(bush))
+        var originalTileSheetOffset = bush.tileSheetOffset.Value;
+        bush.tileSheetOffset.Value = 1;
+        if (!ModState.ManagedBushes.TryGetValue(bush, out var managedBush) || managedBush.Item is not { } item)
         {
+            bush.tileSheetOffset.Value = originalTileSheetOffset;
             return false;
         }
 
-        if (!ModState.Api.TryGetShakeOffItem(bush, out var item))
-        {
-            return true;
-        }
+        bush.tileSheetOffset.Value = originalTileSheetOffset;
+        managedBush.Item = null;
 
-        Game1.createItemDebris(item, Utility.PointToVector2(bush.getBoundingBox().Center), Game1.random.Next(1, 4));
-        bush.ClearCachedData();
+        Game1.createItemDebris(
+            item,
+            bush.getBoundingBox().Center.ToVector2(),
+            Game1.random.Next(1, 4));
+
         return true;
     }
 }
